@@ -1,5 +1,6 @@
 package view.frontend.level.menu;
 
+import view.frontend.LoginFrame.User;
 import view.frontend.controller.Logic;
 import view.frontend.level.game.Frame;
 import view.game.GameFrame;
@@ -16,8 +17,10 @@ public class LevelSelectionFrame extends JFrame {
     private int selectedLevel = -1;
     private JPanel levelDetailPanel;
     private JLabel levelDescriptionLabel;
+    private User currentUser;
     
-    public LevelSelectionFrame() {
+    public LevelSelectionFrame(User user) {
+        this.currentUser = user;
         setTitle("选择关卡");
         setSize(600, 500);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
