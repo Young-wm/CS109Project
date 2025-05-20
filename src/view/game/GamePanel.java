@@ -170,7 +170,7 @@ public class GamePanel extends JPanel {
             //这里用稍暗一点的颜色涂在边框区分清楚每一个块
 
             //下面给每一个块上写上它的名字
-            g2d.setColor(Color.BLACK);
+            g2d.setColor(Color.WHITE);
             String blockText = block.getName();
             FontMetrics fm = g2d.getFontMetrics();
             int stringWidth = fm.stringWidth(blockText);

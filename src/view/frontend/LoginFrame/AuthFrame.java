@@ -20,14 +20,10 @@ public class AuthFrame extends JFrame {
     private JPanel mainAppPanel; // Panel for the main application after login
     private JLabel mainAppWelcomeLabel; // Label for dynamic welcome message
 
-
     private static final String LOGIN_PANEL = "LoginPanel";
     private static final String REGISTER_PANEL = "RegisterPanel";
     private static final String GUEST_PANEL = "GuestPanel"; // Placeholder for guest/main app
     private static final String MAIN_APP_PANEL = "MainAppPanel"; // Placeholder for main application after login
-
-
-    private User currentUser;
 
 
     public AuthFrame() {
@@ -79,15 +75,12 @@ public class AuthFrame extends JFrame {
         JButton startGameMainButton = new JButton("进入游戏");
         startGameMainButton.addActionListener(e -> {
             dispose(); // 这里直接关闭了初始登录界面
-            SwingUtilities.invokeLater(() -> new LevelSelectionFrame(currentUser).setVisible(true)); //打开选关界面
+            SwingUtilities.invokeLater(() -> new LevelSelectionFrame().setVisible(true)); //打开选关界面
         });
         appButtonsPanel.add(startGameMainButton);
 
         JButton logoutButton = new JButton("登出");
-        logoutButton.addActionListener(e -> {
-            currentUser = null;
-            showLoginPanel();
-        }); //当用户点击"退出"时，回到一开始的登录界面
+        logoutButton.addActionListener(e -> showLoginPanel()); //当用户点击"退出"时，回到一开始的登录界面
         appButtonsPanel.add(logoutButton);
         this.mainAppPanel.add(appButtonsPanel, BorderLayout.SOUTH);
 
@@ -117,7 +110,6 @@ public class AuthFrame extends JFrame {
     }
 
     public void showMainAppPanel(User user) {
-        this.currentUser = user;
         // Assuming User class has getUsername() method and is in the same package or imported
         if (user != null && user.getUsername() != null) { 
             this.mainAppWelcomeLabel.setText("登录成功! 欢迎回来, " + user.getUsername() + "!");
