@@ -49,11 +49,15 @@ public class GameFrame3 extends JFrame {
     //gameTimer.restart();重启
     //这个项目中可能用到的就是这几个方法
     private boolean timeUpDialogShown = false;
+    private Timer autoSaveTimer;
 
     private static final String KLOTSKI_FILE_EXTENSION = "klotski";
     //定义存档文件的推荐扩展名，在储存时就定义好，后面找的时候更加方便
     private static final String KLOTSKI_FILE_DESCRIPTION = "(*.klotski)";
     //在文件过滤器中显示的描述，方便后面在实现load时查找自己的游戏文件
+    private static final String AUTO_SAVE_FILE_NAME = "1.klotski";
+
+
 
     public GameFrame3() {
         gameLogic3 = new GameLogic3();
@@ -90,6 +94,9 @@ public class GameFrame3 extends JFrame {
         // 初始化并启动游戏计时器
         setupGameTimer();
 
+        setupAutoSaveTimer();
+        autoSaveTimer.start();
+
         // 添加键盘监听器
         setupKeyboardControls();
 
@@ -106,6 +113,10 @@ public class GameFrame3 extends JFrame {
     }
 
     private void promptToSaveOnExit() {
+        if (autoSaveTimer != null) {
+            autoSaveTimer.stop();
+        }
+
         gameTimer.stop();
         // 使用 JOptionPane 显示一个确认对话框，包含“是”、“否”、“取消”三个选项
         int response = JOptionPane.showConfirmDialog(
@@ -217,6 +228,21 @@ public class GameFrame3 extends JFrame {
     //这个方法实现了键盘移动，它同样是对应构造方法里面，后面不会用到这个具体方法
     //这个实现的逻辑可以通过键盘上面的上下左右或者wsad来进行方块的移动
 
+    private void setupAutoSaveTimer() {
+        autoSaveTimer = new Timer(30000, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (gameLogic3 != null && !gameLogic3.getGameState().isGameWon()) {
+                    gameLogic3.saveGameStateToFile(new File(AUTO_SAVE_FILE_NAME));
+                } else if (gameLogic3 != null && gameLogic3.getGameState().isGameWon()) {
+                    if(autoSaveTimer != null) autoSaveTimer.stop();
+                    // 游戏胜利则停止
+                }
+            }
+        });
+    }
+    //这个类实现了自动保存的逻辑，实现了每秒自动保存一次的逻辑
+
 
     public void refreshGameView() {
         gamePanel3.repaint();
@@ -239,6 +265,9 @@ public class GameFrame3 extends JFrame {
     public void checkAndShowWinDialog() {
         if (gameLogic3.getGameState().isGameWon()) {
             gameTimer.stop();
+            if (autoSaveTimer != null) {
+                autoSaveTimer.stop();
+            }
             String message = String.format("Congratulations! You have won the game. " +
                     "Your total time taken is %s seconds and the total number of steps is %d.",
                     this.formatTime(180 - gameLogic3.getGameState().getRemainingTimeInSecond()),
@@ -260,6 +289,9 @@ public class GameFrame3 extends JFrame {
     public void handleReset() {
         gameLogic3.resetGame();
         gameTimer.restart();
+        if (autoSaveTimer != null) {
+            autoSaveTimer.restart();
+        }
         refreshGameView();
     }
     //每次重置操作以后需要引用一次这个方法来更新整个JFrame
@@ -353,6 +385,15 @@ public class GameFrame3 extends JFrame {
             if (gameLogic3.loadGameStateFromFile(fileToLoad)) {
                 // 加载成功后的处理
                 gameTimer.stop();
+                if (autoSaveTimer != null) autoSaveTimer.stop();
+
+
+                if (!gameLogic3.getGameState().isGameWon()) {
+                    gameTimer.start();
+                    if (autoSaveTimer != null) {
+                        autoSaveTimer.restart(); // 为新加载的游戏重启自动保存
+                    }
+                }
 
 
                 if (!gameLogic3.getGameState().isGameWon()) {

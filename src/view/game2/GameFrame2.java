@@ -47,11 +47,13 @@ public class GameFrame2 extends JFrame {
     //gameTimer.stop();停止
     //gameTimer.restart();重启
     //这个项目中可能用到的就是这几个方法
+    private Timer autoSaveTimer;
 
     private static final String KLOTSKI_FILE_EXTENSION = "klotski";
     //定义存档文件的推荐扩展名，在储存时就定义好，后面找的时候更加方便
     private static final String KLOTSKI_FILE_DESCRIPTION = "(*.klotski)";
     //在文件过滤器中显示的描述，方便后面在实现load时查找自己的游戏文件
+    private static final String AUTO_SAVE_FILE_NAME = "1.klotski";
 
     public GameFrame2() {
         gameLogic2 = new GameLogic2();
@@ -73,6 +75,8 @@ public class GameFrame2 extends JFrame {
         setLayout(new BorderLayout());
         // 主窗口使用边界布局
 
+        setupAutoSaveTimer();
+        autoSaveTimer.start();
 
         gamePanel2 = new GamePanel2(gameLogic2);
         statusPanel2 = new StatusPanel2();
@@ -103,6 +107,14 @@ public class GameFrame2 extends JFrame {
     }
 
     private void promptToSaveOnExit() {
+
+        if (autoSaveTimer != null) {
+            autoSaveTimer.stop();
+        }
+        gameTimer.stop();
+        //点击×的时候会实现自动保存功能的停止
+
+
         // 使用 JOptionPane 显示一个确认对话框，包含“是”、“否”、“取消”三个选项
         int response = JOptionPane.showConfirmDialog(
                 this,
@@ -139,6 +151,9 @@ public class GameFrame2 extends JFrame {
                     updateStatus();
                 } else {
                     gameTimer.stop();
+                    if (autoSaveTimer != null) {
+                        autoSaveTimer.stop();
+                    }
                 }
             }
         });
@@ -185,6 +200,21 @@ public class GameFrame2 extends JFrame {
     //这个方法实现了键盘移动，它同样是对应构造方法里面，后面不会用到这个具体方法
     //这个实现的逻辑可以通过键盘上面的上下左右或者wsad来进行方块的移动
 
+    private void setupAutoSaveTimer() {
+        autoSaveTimer = new Timer(30000, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (gameLogic2 != null && !gameLogic2.getGameState().isGameWon()) {
+                    gameLogic2.saveGameStateToFile(new File(AUTO_SAVE_FILE_NAME));
+                } else if (gameLogic2 != null && gameLogic2.getGameState().isGameWon()) {
+                    if(autoSaveTimer != null) autoSaveTimer.stop();
+                    // 游戏胜利则停止
+                }
+            }
+        });
+    }
+    //这个类实现了自动保存的逻辑，实现了每秒自动保存一次的逻辑
+
 
     public void refreshGameView() {
         gamePanel2.repaint();
@@ -207,6 +237,11 @@ public class GameFrame2 extends JFrame {
     public void checkAndShowWinDialog() {
         if (gameLogic2.getGameState().isGameWon()) {
             gameTimer.stop();
+            if (autoSaveTimer != null) {
+                autoSaveTimer.stop();
+            }
+            //游戏胜利时自动保存功能也一起停止
+
             String message = String.format("Congratulations! You have won the game. " +
                     "Your total time taken is %s seconds and the total number of steps is %d.",
                     this.formatTime(gameLogic2.getGameState().getElapsedTimeInSeconds()),
@@ -228,6 +263,10 @@ public class GameFrame2 extends JFrame {
     public void handleReset() {
         gameLogic2.resetGame();
         gameTimer.restart();
+        if (autoSaveTimer != null) {
+            autoSaveTimer.restart();
+        }
+        // 重置游戏时也重启自动保存
         refreshGameView();
     }
     //每次重置操作以后需要引用一次这个方法来更新整个JFrame
@@ -322,9 +361,13 @@ public class GameFrame2 extends JFrame {
                 // 加载成功后的处理
                 gameTimer.stop();
 
+                if (autoSaveTimer != null) autoSaveTimer.stop();
 
                 if (!gameLogic2.getGameState().isGameWon()) {
                     gameTimer.start();
+                    if (autoSaveTimer != null) {
+                        autoSaveTimer.restart(); // 为新加载的游戏重启自动保存
+                    }
                 }
 
                 refreshGameView();
@@ -363,5 +406,16 @@ public class GameFrame2 extends JFrame {
         return gameLogic2;
     }
     //顺便写了一个gameLogic的getter以防其它开发的时候要用到GameFrame中的gameLogic
+
+    public void dispose() {
+        if (autoSaveTimer != null) {
+            autoSaveTimer.stop(); // 确保在窗口销毁时停止自动保存计时器
+        }
+        if (gameTimer != null) { //
+            gameTimer.stop(); //
+        }
+        super.dispose();
+    }
+    //确保窗口关闭时自动保存的计时器和游戏界面的主计时器都关闭，避免资源浪费
 
 }
