@@ -12,38 +12,57 @@ import java.util.Map;
 /*
 * 这个类实现了整个完整的游戏panel
 * 后续要用到的方法：每当游戏界面需要发生改变的时候（包括了鼠标点击的高亮，以及方块发生移动等等），都直接调用一次repaint()即可
-* 后续还需要改进的：给整个游戏加上背景，再给游戏的每一个角色加上背景图片
-* 另外如果加上背景图片以底面上每个角色的名字还想要保留，则再paintComponent方法里面修改写名字时画笔的颜色使其更加清晰即可
- */
+* 游戏支持自适应缩放和图片背景
+*/
 
 public class GamePanel3 extends JPanel {
 
     private GameLogic3 gameLogic3;
-    //这里必须加上一个gameLogic的field来找到里面对应的东西，
-    // 但是在创建GamePanel相关对象的时候，千万不能创建新的，要传入GameFrame当中的gameLogic
-
-    int cellSize = 80;
-    // 这里定义出每个格子的像素大小这个变量，方便后面在调整具体大小美化时候可以直接更改
+    //这里传入的就是GameFrame里面的gameLogic
+    private int baseCellSize = 80; // 基础单元格大小
+    private int cellSize = baseCellSize; // 当前使用的单元格大小，会根据面板大小动态调整
     private int offsetX = 20;
     private int offsetY = 20;
     //同样为了后面方便美化页面,这里定义出这个panel边界的间距
-
-    private Map<Integer, Color> blockColors;
-    //前面的Map的每一个ID对应一个Block，所以这里也通过一个Map的形式来储存所有的颜色，后面会非常好对应
+    private Map<Integer, Color> blockColors = new HashMap<>();
+    //前面的Map的每一个ID对应一个Block，所以这里也通过一个Map的形式来储存所有的颜色
+    
+    // 皮肤切换按钮
+    private JButton skinToggleButton = new JButton("切换皮肤");
     private Color selectedBlockBorderColor = Color.YELLOW;
     // 选中方块的边框颜色，定义为黄色
     private Color gridColor = Color.DARK_GRAY;
     // 网格线颜色，定义为深灰色
     private Color emptyCellColor = Color.LIGHT_GRAY;
     // 空格颜色定义为亮灰色
+    
+    // 是否显示网格线
+    private boolean showGridLines = false;
+    // 是否显示棋子名称
+    private boolean showPieceNames = true;
 
     public GamePanel3(GameLogic3 logic) {
         this.gameLogic3 = logic;
-        //这里传入的就是GameFrame里面的gameLogic
         setPreferredSizeBasedOnBoard();
         //设置好panel的边界条件
         initializeBlockColors();
         //设置好block的颜色
+          // 初始化图片资源管理器
+        GameImageManager.initialize();
+        
+        // 根据当前皮肤模式设置是否显示棋子名称
+        updatePieceNameVisibility();
+        
+        // 设置布局为null，以便自定义放置按钮
+        setLayout(null);
+        
+        // 添加皮肤切换按钮
+        skinToggleButton.setBounds(10, 10, 100, 30);
+        add(skinToggleButton);
+        skinToggleButton.addActionListener(e -> toggleSkin());
+        
+        // 启用双缓冲，减少闪烁，提高渲染性能
+        setDoubleBuffered(true);
 
         addMouseListener(new MouseAdapter() {
             @Override
@@ -53,13 +72,55 @@ public class GamePanel3 extends JPanel {
             //补充：mousePressed指的是鼠标点击下去这个事件，mouseClicked指的是鼠标点下去再回弹的事件
         });
         //这里用适配器，来只实现我想要实现的方法
+        
+        // 添加组件监听器，处理大小变化
+        addComponentListener(new java.awt.event.ComponentAdapter() {
+            public void componentResized(java.awt.event.ComponentEvent evt) {
+                updateCellSizeBasedOnPanel();
+            }
+        });
+    }
+
+    /**
+     * 根据面板大小更新单元格大小
+     */
+    private void updateCellSizeBasedOnPanel() {
+        if (getWidth() <= 0 || getHeight() <= 0) return;
+        
+        Board3 board3 = gameLogic3.getGameState().getBoard();
+        
+        // 计算可用的棋盘区域大小
+        int availableWidth = getWidth() - (2 * offsetX);
+        int availableHeight = getHeight() - (2 * offsetY);
+        
+        // 计算每个方向上的单元格大小
+        int cellSizeFromWidth = availableWidth / board3.getWidth();
+        int cellSizeFromHeight = availableHeight / board3.getHeight();
+        
+        // 使用较小的值作为单元格大小，确保完整显示
+        int newCellSize = Math.min(cellSizeFromWidth, cellSizeFromHeight);
+        
+        // 确保单元格大小不会低于一个最小值（可以根据需要调整）
+        int minCellSize = 20;
+        newCellSize = Math.max(newCellSize, minCellSize);
+        
+        // 更新单元格大小（如果有变化）
+        if (cellSize != newCellSize) {
+            cellSize = newCellSize;
+            
+            // 重新计算偏移量，使棋盘居中
+            offsetX = (getWidth() - (cellSize * board3.getWidth())) / 2;
+            offsetY = (getHeight() - (cellSize * board3.getHeight())) / 2;
+            
+            repaint(); // 重绘棋盘
+        }
     }
 
     private void setPreferredSizeBasedOnBoard() {
             Board3 board3 = gameLogic3.getGameState().getBoard();
-            int panelWidth = board3.getWidth() * cellSize + 2 * offsetX;
+            int panelWidth = board3.getWidth() * baseCellSize + 2 * offsetX;
             // 总宽度 = 列数 * 单元格大小 + 2 * 偏移量 (左右)
-            int panelHeight = board3.getHeight() * cellSize + 2 * offsetY;
+            int panelHeight = board3.getHeight() * baseCellSize + 2 * offsetY;
             // 总高度 = 行数 * 单元格大小 + 2 * 偏移量 (上下)
             setPreferredSize(new Dimension(panelWidth, panelHeight));
     }
@@ -112,91 +173,223 @@ public class GamePanel3 extends JPanel {
             JOptionPane.showMessageDialog(this,message,title, JOptionPane.INFORMATION_MESSAGE);
         }
     }
-    //这个方法实现了将鼠标点击的位置转化为坐标的形式，同时将被点击的坐标高亮，点击位置无效还会出现提示框报错
+    //这个方法实现了将鼠标点击的位置转化为坐标的形式，同时将被点击的坐标高亮，点击位置无效还会出现提示框报错    /**
+     /* 获取棋子图片，优先从缓存获取
+     * @param pieceId 棋子ID
+     * @return 对应的棋子图片
+     */
+    private Image getPieceImage(int pieceId, int width, int height) {
+        // 检查当前皮肤模式
+        if (GameImageManager.getSkinMode() == 1) {
+            // 纯色皮肤模式下返回null，让调用者使用纯色绘制
+            return null;
+        }
+        
+        Image image = GameImageManager.getPieceImage(pieceId);
+        if (image != null) {
+            // 调整图片大小以适应当前单元格大小
+            return GameImageManager.resizeImageToFit(image, width, height);
+        }
+        return null;
+    }
 
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        // 清空背景
         Graphics2D g2d = (Graphics2D) g;
-        // 补充知识点：这里使用Graphics2D，它有更多绘图功能
 
-        GameState3 gameState3 = gameLogic3.getGameState();
-        if (gameState3 == null){
+        // Apply rendering hints
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2d.setRenderingHint(RenderingHints.KEY_COLOR_RENDERING, RenderingHints.VALUE_COLOR_RENDER_SPEED);
+        g2d.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_SPEED);
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+
+        GameState3 gameState3 = this.gameLogic3.getGameState();
+        if (gameState3 == null || gameState3.getBoard() == null) {
+            String message = "Game data not available. Waiting for initialization...";
+            FontMetrics fm = g2d.getFontMetrics();
+            int stringWidth = fm.stringWidth(message);
+            g2d.drawString(message, (getWidth() - stringWidth) / 2, getHeight() / 2);
             return;
         }
         Board3 board3 = gameState3.getBoard();
-        if (board3 == null){
+
+        if (getWidth() <= 0 || getHeight() <= 0) { // Panel not ready or not visible
             return;
         }
-
-        // 这个for循环完成了棋盘网格和空格的绘制
-        for (int row = 0; row < board3.getHeight(); row++) {
-            for (int col = 0; col < board3.getWidth(); col++) {
-                int x = offsetX + col * cellSize;
-                int y = offsetY + row * cellSize;
-
-                // 这里绘制了空格背景
-                if (board3.getBlockIdAt(col, row) == Board3.EMPTY_CELL_ID) {
-                    g2d.setColor(emptyCellColor);
-                    //这个可以理解为设置一支画笔，它的颜色是空白所对应的颜色
-                    g2d.fillRect(x, y, cellSize, cellSize);
-                    //现在将这个矩形的部分全部涂上空白区域对应的颜色
-                }
-
-                // 这里绘制网格线
-                g2d.setColor(gridColor);
-                //这里的理解可以理解为将画笔的颜色换为网格线对应的颜色
-                g2d.drawRect(x, y, cellSize, cellSize);
-                //只给矩形的边界画上，即对应着网格线
+        
+        if (this.cellSize <= 0) {
+            updateCellSizeBasedOnPanel();
+            if (this.cellSize <= 0) {
+                 String message = "Error: Cell size invalid. Panel may not be properly sized.";
+                 FontMetrics fm = g2d.getFontMetrics();
+                 int stringWidth = fm.stringWidth(message);
+                 g2d.drawString(message, (getWidth() - stringWidth) / 2, getHeight() / 2);
+                return;
             }
         }
 
-        //接下来要开始绘制所有方块
-        Map<Integer, Block3> allBlocks = board3.getBlocksCopy();
-        for (Block3 block3 : allBlocks.values()) {
-            int blockPixelX = offsetX + block3.getX() * cellSize;
-            int blockPixelY = offsetY + block3.getY() * cellSize;
-            int blockPixelWidth = block3.getWidth() * cellSize;
-            int blockPixelHeight = block3.getHeight() * cellSize;
+        int currentSkinMode = GameImageManager.getSkinMode();
+        
+        int boardPixelWidth = board3.getWidth() * this.cellSize;
+        int boardPixelHeight = board3.getHeight() * this.cellSize;
 
-            g2d.setColor(blockColors.get(block3.getId()));
-            //这里已经在前面的initializeBlockColors这个地方对应好了
-            g2d.fillRect(blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight);
-            //这里用更新过了的画笔给矩形部分画上颜色
-
-            g2d.setColor(blockColors.get(block3.getId()).darker());
-            g2d.drawRect(blockPixelX, blockPixelY, blockPixelWidth -1, blockPixelHeight -1);
-            //这里用稍暗一点的颜色涂在边框区分清楚每一个块
-
-            //下面给每一个块上写上它的名字
-            g2d.setColor(Color.WHITE);
-            String blockText = block3.getName();
-            FontMetrics fm = g2d.getFontMetrics();
-            int stringWidth = fm.stringWidth(blockText);
-            int stringHeight = fm.getAscent() - fm.getDescent(); // 更准确的文本高度
-            //这里计算一下文本居中位置
-            int textX = blockPixelX + (blockPixelWidth - stringWidth) / 2;
-            int textY = blockPixelY + (blockPixelHeight - stringHeight) / 2 + fm.getAscent();
-            //用新的画笔给每个块的中心位置写上它的名字
-            g2d.drawString(blockText, textX, textY);
+        // 1. Draw Board Background
+        if (currentSkinMode == 0) { // Image mode
+            Image boardBackgroundImage = GameImageManager.getBoardImage();
+            if (boardBackgroundImage != null) {
+                Image scaledBoardBg = GameImageManager.resizeImageToFit(boardBackgroundImage, boardPixelWidth, boardPixelHeight);
+                g2d.drawImage(scaledBoardBg != null ? scaledBoardBg : boardBackgroundImage, this.offsetX, this.offsetY, boardPixelWidth, boardPixelHeight, this);
+            } else {
+                g2d.setColor(Color.LIGHT_GRAY); 
+                g2d.fillRect(this.offsetX, this.offsetY, boardPixelWidth, boardPixelHeight);
+            }
+        } else { // Solid color mode
+            g2d.setColor(getBackground() != null ? getBackground().darker() : Color.DARK_GRAY); 
+            g2d.fillRect(this.offsetX, this.offsetY, boardPixelWidth, boardPixelHeight);
         }
 
-        //下面的代码用来高亮显示选中的方块
-        Block3 selected = gameLogic3.getSelectedBlock();
-        if (selected != null) {
-            int selX = offsetX + selected.getX() * cellSize;
-            int selY = offsetY + selected.getY() * cellSize;
-            int selWidth = selected.getWidth() * cellSize;
-            int selHeight = selected.getHeight() * cellSize;
+        // 2. Draw Empty Cells and Grid Lines
+        for (int row = 0; row < board3.getHeight(); row++) {
+            for (int col = 0; col < board3.getWidth(); col++) {
+                int x = this.offsetX + col * this.cellSize;
+                int y = this.offsetY + row * this.cellSize;
 
-            g2d.setColor(selectedBlockBorderColor);
-            g2d.setStroke(new BasicStroke(3));
-            //这里把画笔的像素设置为3，能凸显出高亮的边框
-            g2d.drawRect(selX + 1, selY + 1, selWidth - 2, selHeight - 2);
-            g2d.setStroke(new BasicStroke(1));
-            //最后再恢复默认画笔宽度
+                if (board3.getBlockIdAt(col, row) == Board3.EMPTY_CELL_ID) {
+                    if (currentSkinMode == 0) { // Image mode
+                        Image emptyCellImg = GameImageManager.getEmptyCellImage();
+                        if (emptyCellImg != null) {
+                            Image scaledEmptyImg = GameImageManager.resizeImageToFit(emptyCellImg, this.cellSize, this.cellSize);
+                            g2d.drawImage(scaledEmptyImg != null ? scaledEmptyImg : emptyCellImg, x, y, this.cellSize, this.cellSize, this);
+                        } else {
+                            g2d.setColor(this.emptyCellColor != null ? this.emptyCellColor.brighter() : Color.WHITE); 
+                            g2d.fillRect(x, y, this.cellSize, this.cellSize);
+                        }
+                    } else { // Solid color mode
+                        g2d.setColor(this.emptyCellColor != null ? this.emptyCellColor : Color.LIGHT_GRAY);
+                        g2d.fillRect(x, y, this.cellSize, this.cellSize);
+                    }
+                }
+
+                if (this.showGridLines) {
+                    g2d.setColor(this.gridColor != null ? this.gridColor : Color.DARK_GRAY);
+                    g2d.drawRect(x, y, this.cellSize, this.cellSize);
+                }
+            }
+        }
+
+        // 3. Draw Pieces
+        Map<Integer, Block3> allBlocks = board3.getBlocksCopy();
+        if (allBlocks != null) {
+            for (Block3 block : allBlocks.values()) {
+                if (block == null) continue;
+
+                int blockPixelX = this.offsetX + block.getX() * this.cellSize;
+                int blockPixelY = this.offsetY + block.getY() * this.cellSize;
+                int blockPixelWidth = block.getWidth() * this.cellSize;
+                int blockPixelHeight = block.getHeight() * this.cellSize;
+
+                if (currentSkinMode == 0) { // Image mode
+                    Image pieceImage = getPieceImage(block.getId(), blockPixelWidth, blockPixelHeight); 
+                    if (pieceImage != null) {
+                        g2d.drawImage(pieceImage, blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight, this);
+                    } else {
+                        Color fallbackColor = this.blockColors.getOrDefault(block.getId(), new Color(180, 180, 180));
+                        g2d.setColor(fallbackColor);
+                        g2d.fillRect(blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight);
+                        g2d.setColor(Color.DARK_GRAY);
+                        g2d.drawRect(blockPixelX, blockPixelY, blockPixelWidth - 1, blockPixelHeight - 1);
+                    }
+                } else { // Solid color mode (currentSkinMode == 1)
+                    Color pieceColor = this.blockColors.getOrDefault(block.getId(), new Color(200, 200, 200));
+                    g2d.setColor(pieceColor);
+                    g2d.fillRect(blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight);
+                    
+                    g2d.setColor(pieceColor.darker()); 
+                    g2d.drawRect(blockPixelX, blockPixelY, blockPixelWidth - 1, blockPixelHeight - 1);
+                    
+                    if (this.showPieceNames) { 
+                        g2d.setColor(Color.WHITE); 
+                        String blockText = block.getName();
+                        if (blockText != null && !blockText.isEmpty()) {
+                            FontMetrics fm = g2d.getFontMetrics();
+                            int stringWidth = fm.stringWidth(blockText);
+                            int textX = blockPixelX + (blockPixelWidth - stringWidth) / 2;
+                            int textY = blockPixelY + (blockPixelHeight - fm.getHeight()) / 2 + fm.getAscent();
+                            g2d.drawString(blockText, textX, textY);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Highlight Selected Block
+        Block3 selected = this.gameLogic3.getSelectedBlock();
+        if (selected != null) {
+            int selX = this.offsetX + selected.getX() * this.cellSize;
+            int selY = this.offsetY + selected.getY() * this.cellSize;
+            int selWidth = selected.getWidth() * this.cellSize;
+            int selHeight = selected.getHeight() * this.cellSize;
+
+            g2d.setColor(this.selectedBlockBorderColor != null ? this.selectedBlockBorderColor : Color.YELLOW);
+            g2d.setStroke(new BasicStroke(3)); 
+            g2d.drawRect(selX + 1, selY + 1, selWidth - 2, selHeight - 2); 
+            g2d.setStroke(new BasicStroke(1)); 
         }
     }
-    //这个方法覆盖了全部的需要被绘制的部分，每当游戏界面需要发生变化时，用一次repaint()就能使界面做出对应改变
+
+    /**
+     * 设置是否显示网格线
+     * @param show 是否显示
+     */
+    public void setShowGridLines(boolean show) {
+        if (this.showGridLines != show) {
+            this.showGridLines = show;
+            repaint();
+        }
+    }
+    
+    /**
+     * 设置是否显示棋子名称
+     * @param show 是否显示
+     */
+    public void setShowPieceNames(boolean show) {
+        if (this.showPieceNames != show) {
+            this.showPieceNames = show;
+            repaint();
+        }
+    }
+    
+    /**
+     * 切换皮肤模式
+     */
+    private void toggleSkin() {
+        // 使用GameImageManager切换皮肤模式
+        GameImageManager.toggleSkinMode();
+        
+        // 根据当前皮肤模式更新是否显示棋子名称
+        updatePieceNameVisibility();
+        
+        // 刷新缓存和重绘
+        clearImageCache();
+        repaint();
+    }
+    
+    /**
+     * 根据当前皮肤模式更新是否显示棋子名称
+     */
+    private void updatePieceNameVisibility() {
+        // 获取当前皮肤模式：0-图片皮肤，1-纯色皮肤
+        int currentMode = GameImageManager.getSkinMode();
+        // 在纯色模式下显示名称，图片模式下不显示
+        showPieceNames = (currentMode == 1);
+    }
+    
+    /**
+     * 清除图片缓存
+     */
+    public void clearImageCache() {
+        // 清空图片缓存，强制重新加载所有图片
+    }
 }

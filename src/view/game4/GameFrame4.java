@@ -51,7 +51,7 @@ public class GameFrame4 extends JFrame {
 
     public GameFrame4() {
         gameLogic4 = new GameLogic4();
-        //new出来的全部都是初始状态的“横刀立马”图
+        //new出来的全部都是初始状态的"横刀立马"图
         setTitle("Klotski Puzzle");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
@@ -164,15 +164,21 @@ public class GameFrame4 extends JFrame {
     public void checkAndShowWinDialog() {
         if (gameLogic4.getGameState().isGameWon()) {
             gameTimer.stop();
-            String message = String.format("Congratulations! You have won the game. " +
-                    "Your total time taken is %s seconds and the total number of steps is %d.",
-                    this.formatTime(gameLogic4.getGameState().getElapsedTimeInSeconds()),
-                    gameLogic4.getGameState().getSteps());
-            String title = "Victory";
-            JOptionPane.showMessageDialog(this,message,title, JOptionPane.INFORMATION_MESSAGE);
+            
+            // 使用新的VictoryFrame来显示胜利界面
+            String formattedTime = this.formatTime(180 - gameLogic4.getGameState().getElapsedTimeInSeconds());
+            int steps = gameLogic4.getGameState().getSteps();
+            
+            // 第三个参数是当前关卡，这里设为4
+            // 第四个参数是胜利背景图片路径，这里使用"victory_background4.jpg"
+            view.frontend.resourses.VictoryFrame.showVictory(
+                    formattedTime, 
+                    steps, 
+                    4, 
+                    "victory_background4.jpg");
         }
     }
-    //这里只是简单随便写了一个胜利信息界面的庆祝，后面应该要重新更换为队友精心设计的界面
+    //这里使用了新的胜利界面，需要在resources文件夹中放入名为victory_background4.jpg的图片
 
 
     public void handleUndo() {
