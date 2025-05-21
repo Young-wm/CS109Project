@@ -100,7 +100,7 @@ public class GameFrame2 extends JFrame {
         //使游戏窗口大小可调，如果后期不方便可以设为false
         
         // 添加窗口大小调整监听器
-        this.addComponentListener(new java.awt.event.ComponentAdapter() {
+        /*this.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentResized(java.awt.event.ComponentEvent evt) {
                 if (gamePanel2 != null) {
@@ -110,7 +110,7 @@ public class GameFrame2 extends JFrame {
                     });
                 }
             }
-        });
+        });*/
         
         setVisible(true);
 

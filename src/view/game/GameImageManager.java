@@ -3,6 +3,7 @@ package view.game;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -24,7 +25,7 @@ public class GameImageManager {
     // 图片加载路径
     private static final String IMAGE_PATH = "src/view/game/images/";
     private static final String BOARD_IMAGE_NAME = "board_background.jpg";
-    private static final String EMPTY_CELL_IMAGE_NAME = "empty_cell.jpg";
+    private static final String EMPTY_CELL_IMAGE_NAME = "empty_cell.png";
     private static final String PIECE_IMAGE_PREFIX = "piece_";
     
     // 皮肤模式：0 - 图片皮肤, 1 - 纯色皮肤
@@ -183,17 +184,14 @@ public class GameImageManager {
             return null;
         }
         
+        // 确保图片已加载，避免尺寸获取问题
+        image = ensureImageLoaded(image);
+        
         int imgWidth = image.getWidth(null);
         int imgHeight = image.getHeight(null);
         
         if (imgWidth <= 0 || imgHeight <= 0) {
-            image = ensureImageLoaded(image);
-            imgWidth = image.getWidth(null);
-            imgHeight = image.getHeight(null);
-            
-            if (imgWidth <= 0 || imgHeight <= 0) {
-                return image; // 无法获取尺寸，返回原图
-            }
+            return image; // 无法获取尺寸，返回原图
         }
         
         // 计算缩放比例
@@ -204,6 +202,29 @@ public class GameImageManager {
         int newWidth = (int) (imgWidth * ratio);
         int newHeight = (int) (imgHeight * ratio);
         
-        return image.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
+        // 确保新尺寸至少为1像素
+        newWidth = Math.max(1, newWidth);
+        newHeight = Math.max(1, newHeight);
+        
+        // 使用更高质量的缩放方式
+        if (image instanceof BufferedImage) {
+            // 对于BufferedImage，使用更高质量的缩放算法
+            BufferedImage bufferedImage = (BufferedImage) image;
+            BufferedImage scaledImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2d = scaledImage.createGraphics();
+            
+            // 设置高质量缩放选项
+            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            
+            g2d.drawImage(bufferedImage, 0, 0, newWidth, newHeight, null);
+            g2d.dispose();
+            
+            return scaledImage;
+        } else {
+            // 对于普通Image，使用getScaledInstance
+            return image.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
+        }
     }
 } 

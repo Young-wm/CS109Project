@@ -23,8 +23,6 @@ public class GameImageManager {
     private static Image boardBackgroundImage;
     // 空白格子图片
     private static Image emptyCellImage;
-    // 缓存调整大小后的图片
-    private static final Map<String, Image> resizedImageCache = new HashMap<>();
     
     // 皮肤模式：0 - 图片皮肤, 1 - 纯色皮肤
     private static int skinMode = 0;
@@ -74,8 +72,6 @@ public class GameImageManager {
      */
     public static int toggleSkinMode() {
         skinMode = (skinMode + 1) % 2;  // 在0和1之间切换
-        // 清空缩放图片缓存，以便使用新的皮肤
-        resizedImageCache.clear();
         return skinMode;
     }
     
@@ -190,25 +186,14 @@ public class GameImageManager {
             return null;
         }
         
-        // 生成缓存键（源图片哈希码+目标宽高）
-        String cacheKey = image.hashCode() + "_" + targetWidth + "x" + targetHeight;
-        
-        // 检查缓存中是否已有调整大小的图片
-        if (resizedImageCache.containsKey(cacheKey)) {
-            return resizedImageCache.get(cacheKey);
-        }
+        // 确保图片已加载，避免尺寸获取问题
+        image = ensureImageLoaded(image);
         
         int imgWidth = image.getWidth(null);
         int imgHeight = image.getHeight(null);
         
         if (imgWidth <= 0 || imgHeight <= 0) {
-            image = ensureImageLoaded(image);
-            imgWidth = image.getWidth(null);
-            imgHeight = image.getHeight(null);
-            
-            if (imgWidth <= 0 || imgHeight <= 0) {
-                return image; // 无法获取尺寸，返回原图
-            }
+            return image; // 无法获取尺寸，返回原图
         }
         
         // 计算缩放比例
@@ -219,54 +204,29 @@ public class GameImageManager {
         int newWidth = (int) (imgWidth * ratio);
         int newHeight = (int) (imgHeight * ratio);
         
-        // 使用更高质量的图像缩放方法
-        Image resizedImage;
-        if (newWidth > 0 && newHeight > 0) {
-            // 创建一个高质量的缓冲图像
-            GraphicsConfiguration gc = GraphicsEnvironment.getLocalGraphicsEnvironment()
-                    .getDefaultScreenDevice().getDefaultConfiguration();
-            BufferedImage bufferedImage = gc.createCompatibleImage(newWidth, newHeight, Transparency.TRANSLUCENT);
+        // 确保新尺寸至少为1像素
+        newWidth = Math.max(1, newWidth);
+        newHeight = Math.max(1, newHeight);
+        
+        // 使用更高质量的缩放方式
+        if (image instanceof BufferedImage) {
+            // 对于BufferedImage，使用更高质量的缩放算法
+            BufferedImage bufferedImage = (BufferedImage) image;
+            BufferedImage scaledImage = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2d = scaledImage.createGraphics();
             
-            Graphics2D g2d = bufferedImage.createGraphics();
-            try {
-                // 设置高质量的图像渲染提示
-                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2d.setRenderingHint(RenderingHints.KEY_COLOR_RENDERING, RenderingHints.VALUE_COLOR_RENDER_QUALITY);
-                g2d.setRenderingHint(RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_QUALITY);
-                
-                // 绘制图像
-                g2d.drawImage(image, 0, 0, newWidth, newHeight, null);
-            } finally {
-                g2d.dispose();
-            }
+            // 设置高质量缩放选项
+            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             
-            resizedImage = bufferedImage;
+            g2d.drawImage(bufferedImage, 0, 0, newWidth, newHeight, null);
+            g2d.dispose();
+            
+            return scaledImage;
         } else {
-            // 如果计算出的尺寸无效，使用原始缩放方法
-            resizedImage = image.getScaledInstance(Math.max(1, newWidth), Math.max(1, newHeight), Image.SCALE_SMOOTH);
+            // 对于普通Image，使用getScaledInstance
+            return image.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
         }
-        
-        // 缓存调整大小后的图片
-        // 如果缓存过大，可以考虑限制缓存大小或定期清理缓存
-        if (resizedImageCache.size() > 100) {
-            resizedImageCache.clear(); // 简单的缓存管理策略，当缓存过大时清空
-        }
-        resizedImageCache.put(cacheKey, resizedImage);
-        
-        return resizedImage;
-    }
-    
-    /**
-     * 清理图片缓存
-     * 在不需要图片资源时调用此方法释放内存
-     */
-    public static void clearCache() {
-        pieceImageCache.clear();
-        resizedImageCache.clear();
-        boardBackgroundImage = null;
-        emptyCellImage = null;
-        System.gc(); // 建议JVM进行垃圾回收
     }
 } 
