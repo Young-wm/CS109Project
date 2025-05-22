@@ -32,8 +32,6 @@ public class GamePanel extends JPanel {
     private Color selectedBlockBorderColor = Color.YELLOW;
     // 网格线颜色，定义为深灰色（如果需要显示网格线）
     private Color gridColor = Color.DARK_GRAY;
-    // 空格颜色定义为亮灰色（当没有空格图片时使用）
-    private Color emptyCellColor = Color.LIGHT_GRAY;
     
     // 定义棋子的纯色填充颜色
     private Map<Integer, Color> pieceColors = new HashMap<>();
@@ -123,6 +121,9 @@ public class GamePanel extends JPanel {
         // 重绘面板
         clearImageCache();  // 清除图片缓存
         repaint();
+        
+        // 请求窗口焦点，确保键盘事件能够被正确捕获
+        SwingUtilities.getWindowAncestor(this).requestFocusInWindow();
     }
     
     /**
@@ -288,8 +289,8 @@ public class GamePanel extends JPanel {
                             g2d.drawImage(originalEmptyCellImage, x, y, cellSize, cellSize, this);
                         }
                     } else {
-                        // 没有图片时使用纯色
-                        g2d.setColor(emptyCellColor);
+                        // 如果没有找到图片，使用默认颜色填充
+                        g2d.setColor(Color.LIGHT_GRAY);
                         g2d.fillRect(x, y, cellSize, cellSize);
                     }
                 }
@@ -326,8 +327,9 @@ public class GamePanel extends JPanel {
                         g2d.drawImage(originalPieceImage, blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight, this);
                     }
                 } else {
-                    // 如果没有找到图片，使用纯色填充
-                    g2d.setColor(pieceColors.getOrDefault(block.getId(), new Color(200, 200, 200)));
+                    // 如果没有找到图片，使用默认颜色填充
+                    Color pieceColor = pieceColors.getOrDefault(block.getId(), new Color(200, 200, 200));
+                    g2d.setColor(pieceColor);
                     g2d.fillRect(blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight);
                     g2d.setColor(Color.DARK_GRAY);
                     g2d.drawRect(blockPixelX, blockPixelY, blockPixelWidth - 1, blockPixelHeight - 1);
@@ -337,9 +339,9 @@ public class GamePanel extends JPanel {
                     String blockText = block.getName();
                     FontMetrics fm = g2d.getFontMetrics();
                     int stringWidth = fm.stringWidth(blockText);
-                    int stringHeight = fm.getAscent();
+                    int stringHeight = fm.getAscent() - fm.getDescent(); // 更准确的文本高度
                     int textX = blockPixelX + (blockPixelWidth - stringWidth) / 2;
-                    int textY = blockPixelY + (blockPixelHeight + stringHeight) / 2;
+                    int textY = blockPixelY + (blockPixelHeight - stringHeight) / 2 + fm.getAscent();
                     g2d.drawString(blockText, textX, textY);
                 }
             } else {

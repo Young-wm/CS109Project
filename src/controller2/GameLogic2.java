@@ -221,17 +221,5 @@ public class GameLogic2 {
 
 
 
-    private AISolver2 aiSolver2;
-    // AI解决器接口实例
-    private SoundPlayer2 soundPlayer2;
-    // 声音播放器接口实例
-
-    public void setAiSolver(AISolver2 solver) {
-        this.aiSolver2 = solver;
-    }
-
-    public void setSoundPlayer(SoundPlayer2 player) {
-        this.soundPlayer2 = player;
-    }
 
 }

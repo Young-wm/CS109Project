@@ -22,20 +22,20 @@ public class GamePanel3 extends JPanel {
     // 但是在创建GamePanel相关对象的时候，千万不能创建新的，要传入GameFrame当中的gameLogic
 
     // 移除固定的cellSize，动态计算
+    // int cellSize = 80;
+    
     private int offsetX = 20;
     private int offsetY = 20;
     //同样为了后面方便美化页面,这里定义出这个panel边界的间距
 
-    // 定义棋子的纯色填充颜色
-    private Map<Integer, Color> blockColors = new HashMap<>();
-    
     // 选中方块的边框颜色，定义为黄色
     private Color selectedBlockBorderColor = Color.YELLOW;
     // 网格线颜色，定义为深灰色
     private Color gridColor = Color.DARK_GRAY;
-    // 空格颜色定义为亮灰色
-    private Color emptyCellColor = Color.LIGHT_GRAY;
-
+    
+    // 定义棋子的纯色填充颜色
+    private Map<Integer, Color> pieceColors = new HashMap<>();
+    
     // 图片缓存，避免重复加载
     private Map<Integer, Image> pieceImageCache = new HashMap<>();
     // 是否显示网格线
@@ -45,7 +45,7 @@ public class GamePanel3 extends JPanel {
 
     // 皮肤切换按钮
     private JButton skinToggleButton = new JButton("切换皮肤");
-
+    
     public GamePanel3(GameLogic3 logic) {
         this.gameLogic3 = logic;
         //这里传入的就是GameFrame里面的gameLogic
@@ -53,7 +53,7 @@ public class GamePanel3 extends JPanel {
         //设置好panel的边界条件
         
         // 初始化颜色映射
-        initializeBlockColors();
+        initPieceColors();
         
         // 初始化图片资源管理器
         GameImageManager.initialize();
@@ -90,29 +90,24 @@ public class GamePanel3 extends JPanel {
             }
         });
     }
-
-    private void initializeBlockColors() {
-        blockColors = new HashMap<>();
-        // 曹操
-        blockColors.put(1, new Color(220, 20, 60));
-
-        // 关羽
-        blockColors.put(2, new Color(0, 128, 0));
-
-        // 张飞，赵云，马超，黄忠
-        blockColors.put(3, new Color(70, 130, 180));
-        blockColors.put(4, new Color(70, 130, 180));
-        blockColors.put(5, new Color(70, 130, 180));
-        blockColors.put(6, new Color(70, 130, 180));
-
-        // 小兵
-        blockColors.put(7, new Color(255, 165, 0));
-        blockColors.put(8, new Color(255, 165, 0));
-        blockColors.put(9, new Color(255, 165, 0));
-        blockColors.put(10, new Color(255, 165, 0));
+    
+    /**
+     * 初始化棋子颜色映射（用于纯色模式）
+     */
+    private void initPieceColors() {
+        // 为每个棋子分配一个颜色
+        pieceColors.put(1, new Color(220, 20, 60));    // 曹操 - 红色
+        pieceColors.put(2, new Color(0, 128, 0));      // 关羽 - 绿色
+        pieceColors.put(3, new Color(70, 130, 180));   // 张飞 - 钢蓝色
+        pieceColors.put(4, new Color(70, 130, 180));   // 赵云 - 钢蓝色
+        pieceColors.put(5, new Color(70, 130, 180));   // 马超 - 钢蓝色
+        pieceColors.put(6, new Color(70, 130, 180));   // 黄忠 - 钢蓝色
+        pieceColors.put(7, new Color(255, 165, 0));    // 小兵 - 橙色
+        pieceColors.put(8, new Color(255, 165, 0));    // 小兵 - 橙色
+        pieceColors.put(9, new Color(255, 165, 0));    // 小兵 - 橙色
+        pieceColors.put(10, new Color(255, 165, 0));   // 小兵 - 橙色
     }
-    //这里调整颜色可能需要后期慢慢去调整和修改，或者后面需要调整为图片的形式可能会更好一点
-
+    
     /**
      * 切换皮肤模式
      */
@@ -126,6 +121,9 @@ public class GamePanel3 extends JPanel {
         // 重绘面板
         clearImageCache();  // 清除图片缓存
         repaint();
+        
+        // 请求窗口焦点，确保键盘事件能够被正确捕获
+        SwingUtilities.getWindowAncestor(this).requestFocusInWindow();
     }
     
     /**
@@ -139,14 +137,14 @@ public class GamePanel3 extends JPanel {
     }
 
     private void setPreferredSizeBasedOnBoard() {
-        Board3 board3 = gameLogic3.getGameState().getBoard();
-        // 使用初始cellSize=80作为参考值来设置首选大小
-        int initialCellSize = 80;
-        int panelWidth = board3.getWidth() * initialCellSize + 2 * offsetX;
-        // 总宽度 = 列数 * 单元格大小 + 2 * 偏移量 (左右)
-        int panelHeight = board3.getHeight() * initialCellSize + 2 * offsetY;
-        // 总高度 = 行数 * 单元格大小 + 2 * 偏移量 (上下)
-        setPreferredSize(new Dimension(panelWidth, panelHeight));
+            Board3 board3 = gameLogic3.getGameState().getBoard();
+            // 使用初始cellSize=80作为参考值来设置首选大小
+            int initialCellSize = 80;
+            int panelWidth = board3.getWidth() * initialCellSize + 2 * offsetX;
+            // 总宽度 = 列数 * 单元格大小 + 2 * 偏移量 (左右)
+            int panelHeight = board3.getHeight() * initialCellSize + 2 * offsetY;
+            // 总高度 = 行数 * 单元格大小 + 2 * 偏移量 (上下)
+            setPreferredSize(new Dimension(panelWidth, panelHeight));
     }
     //这个方法这样写后面可以非常容易地更改地图
     //可以自动地根据给出的地图去渲染出图形
@@ -291,8 +289,8 @@ public class GamePanel3 extends JPanel {
                             g2d.drawImage(originalEmptyCellImage, x, y, cellSize, cellSize, this);
                         }
                     } else {
-                        // 没有图片时使用纯色
-                        g2d.setColor(emptyCellColor);
+                        // 如果没有找到图片，使用默认颜色填充
+                        g2d.setColor(Color.LIGHT_GRAY);
                         g2d.fillRect(x, y, cellSize, cellSize);
                     }
                 }
@@ -329,26 +327,27 @@ public class GamePanel3 extends JPanel {
                         g2d.drawImage(originalPieceImage, blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight, this);
                     }
                 } else {
-                    // 如果没有找到图片，使用纯色填充
-                    g2d.setColor(blockColors.getOrDefault(block3.getId(), new Color(200, 200, 200)));
+                    // 如果没有找到图片，使用默认颜色填充
+                    Color pieceColor = pieceColors.getOrDefault(block3.getId(), new Color(200, 200, 200));
+                    g2d.setColor(pieceColor);
                     g2d.fillRect(blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight);
                     g2d.setColor(Color.DARK_GRAY);
                     g2d.drawRect(blockPixelX, blockPixelY, blockPixelWidth - 1, blockPixelHeight - 1);
                     
-                    // 在无图片模式下显示棋子名称
+                    // 在纯色模式下显示棋子名称
                     g2d.setColor(Color.WHITE);
                     String blockText = block3.getName();
                     FontMetrics fm = g2d.getFontMetrics();
                     int stringWidth = fm.stringWidth(blockText);
-                    int stringHeight = fm.getAscent();
+                    int stringHeight = fm.getAscent() - fm.getDescent(); // 更准确的文本高度
                     int textX = blockPixelX + (blockPixelWidth - stringWidth) / 2;
-                    int textY = blockPixelY + (blockPixelHeight + stringHeight) / 2;
+                    int textY = blockPixelY + (blockPixelHeight - stringHeight) / 2 + fm.getAscent();
                     g2d.drawString(blockText, textX, textY);
                 }
             } else {
                 // 纯色皮肤模式
-                Color blockColor = blockColors.getOrDefault(block3.getId(), new Color(200, 200, 200));
-                g2d.setColor(blockColor);
+                Color pieceColor = pieceColors.getOrDefault(block3.getId(), new Color(200, 200, 200));
+                g2d.setColor(pieceColor);
                 g2d.fillRect(blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight);
                 g2d.setColor(Color.DARK_GRAY);
                 g2d.drawRect(blockPixelX, blockPixelY, blockPixelWidth - 1, blockPixelHeight - 1);

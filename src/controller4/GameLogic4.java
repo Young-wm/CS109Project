@@ -185,17 +185,5 @@ public class GameLogic4 {
     //这两个方法联合起来实现是否胜利的判断
 
 
-    private AISolver4 aiSolver4;
-    // AI解决器接口实例
-    private SoundPlayer4 soundPlayer4;
-    // 声音播放器接口实例
-
-    public void setAiSolver(AISolver4 solver) {
-        this.aiSolver4 = solver;
-    }
-
-    public void setSoundPlayer(SoundPlayer4 player) {
-        this.soundPlayer4 = player;
-    }
-
+    
 }
