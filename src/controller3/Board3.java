@@ -33,8 +33,8 @@ public class Board3 implements Serializable {
     //这里这样子定义board的宽高后面如果想要增加关卡会方便很多
     private int width; //棋盘的宽
     private int height;//棋盘的高
-    private int[][] grid;
-    private Map<Integer, Block3> blocks;
+    public int[][] grid;
+    public Map<Integer, Block3> blocks;
     //grid这个数组我准备用来储存每个小格的状态，即每个小格被id为什么的方块占领了
     //Map<>则是用来将每个方块和它的唯一的id对应起来，用Map<>后面要好查找很多
 
@@ -209,4 +209,24 @@ public class Board3 implements Serializable {
         initialize();
     }
     //可以通过这个构造方法非常简洁快速地构造一个横刀立马的图，且所有东西都是初始化的
-}
+
+    public Board3(Board3 other) {
+        this.width = other.width;
+        this.height = other.height;
+        this.grid = new int[this.height][this.width];
+        this.blocks = new HashMap<>();
+
+        // 深拷贝棋子 (Block3)
+        for (Map.Entry<Integer, Block3> entry : other.blocks.entrySet()) {
+            Block3 originalBlock = entry.getValue();
+            Block3 copiedBlock = new Block3(originalBlock.getId(), originalBlock.getName(),
+                    originalBlock.getWidth(), originalBlock.getHeight(),
+                    originalBlock.getX(), originalBlock.getY());
+            this.blocks.put(copiedBlock.getId(), copiedBlock);
+        }
+
+        // 深拷贝棋盘网格 (grid)
+        for (int i = 0; i < this.height; i++) {
+            this.grid[i] = Arrays.copyOf(other.grid[i], this.width);
+        }
+    }}

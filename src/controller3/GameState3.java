@@ -136,4 +136,12 @@ public class GameState3 implements Serializable {
     }
     //重置游戏的方法
 
+    public GameState3(GameState3 other) {
+        this.board3 = new Board3(other.board3); // 使用 Board3 的拷贝构造函数
+        this.steps = other.steps;
+        this.remainingTimeInSeconds = other.remainingTimeInSeconds; // 继承剩余时间
+        this.gameWon = other.gameWon;
+        this.moveHistory = new Stack<>();
+    }
+
 }

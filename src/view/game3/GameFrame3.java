@@ -1,8 +1,6 @@
 package view.game3;
 
-import controller3.Direction3;
-import controller3.GameLogic3;
-import controller3.GameState3;
+import controller3.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -11,10 +9,13 @@ import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import javax.swing.JFileChooser;
+import javax.swing.Timer;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.io.File;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.List;
+
 /*
 * 现在最需要注意的点是后面添加通过访客登录的功能时，需要将页面点击关闭换成结束程序运行而不是跳转保存
 * 这个类这样用：直接new GameFrame就会出来一个全新的完整的游戏棋盘
@@ -49,6 +50,11 @@ public class GameFrame3 extends JFrame {
     //gameTimer.restart();重启
     //这个项目中可能用到的就是这几个方法
     private boolean timeUpDialogShown = false;
+
+    private boolean isAISolving = false;
+    private Timer animationTimer;
+    private List<MoveRecord3> solutionMoves;
+    private int currentMoveIndex;
 
     private static final String KLOTSKI_FILE_EXTENSION = "klotski";
     //定义存档文件的推荐扩展名，在储存时就定义好，后面找的时候更加方便
@@ -401,5 +407,163 @@ public class GameFrame3 extends JFrame {
         return gameLogic3;
     }
     //顺便写了一个gameLogic的getter以防其它开发的时候要用到GameFrame中的gameLogic
+    public void handleAISolve() {
+        if (isAISolving) {
+            JOptionPane.showMessageDialog(this, "AI 正在计算中...", "AI 忙碌", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        if (gameLogic3.getGameState().isGameWon()) {
+            JOptionPane.showMessageDialog(this, "游戏已经胜利！", "游戏结束", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        isAISolving = true;
+        controlPanel3.setAllButtonsEnabled(false); // 禁用按钮
+        System.out.println("AI: 请求已接收，开始求解...");
+
+        SwingWorker<List<MoveRecord3>, String> worker = new SwingWorker<List<MoveRecord3>, String>() {
+            @Override
+            protected List<MoveRecord3> doInBackground() throws Exception {
+                publish("AI 开始求解...");
+                AISolver3 solver = new AISolver3();
+                GameState3 currentStateForAI = new GameState3(gameLogic3.getGameState());
+                List<MoveRecord3> solution = solver.solve(currentStateForAI);
+                publish("AI 求解完成。");
+                return solution;
+            }
+
+            @Override
+            protected void process(List<String> chunks) {
+                for (String message : chunks) {
+                    System.out.println(message); // 在控制台显示进度
+                }
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<MoveRecord3> solution = get();
+                    if (solution != null && !solution.isEmpty()) {
+                        System.out.println("AI 找到解法，共 " + solution.size() + " 步。准备演示...");
+                        animateSolution(solution);
+                    } else {
+                        JOptionPane.showMessageDialog(GameFrame3.this, "AI 未能找到解法。", "AI 结果", JOptionPane.INFORMATION_MESSAGE);
+                        finishAISession();
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(GameFrame3.this, "AI 求解时发生错误: " + e.getMessage(), "AI 错误", JOptionPane.ERROR_MESSAGE);
+                    finishAISession();
+                }
+            }
+        };
+
+        worker.execute();
+    }
+
+    private void animateSolution(List<MoveRecord3> solution) {
+        if (solution == null || solution.isEmpty()) {
+            finishAISession();
+            return;
+        }
+        this.solutionMoves = solution;
+        this.currentMoveIndex = 0;
+        this.setFocusable(false); // 禁用键盘
+        if (gameTimer != null) gameTimer.stop(); // 停止游戏计时器
+
+        int delay = 500; // 动画速度 (毫秒)
+
+        if (animationTimer != null && animationTimer.isRunning()) {
+            animationTimer.stop();
+        }
+
+        animationTimer = new Timer(delay, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (gameLogic3.getGameState().isGameWon()) {
+                    animationTimer.stop();
+                    finishAISession();
+                    checkAndShowWinDialog();
+                    return;
+                }
+
+                if (currentMoveIndex < solutionMoves.size()) {
+                    MoveRecord3 move = solutionMoves.get(currentMoveIndex);
+
+                    boolean selectionSuccess = gameLogic3.selectBlockAt(move.getFromX(), move.getFromY());
+
+                    if (!selectionSuccess || gameLogic3.getSelectedBlock() == null || gameLogic3.getSelectedBlock().getId() != move.getBlockId()) {
+                        System.err.println("AI 动画错误: 无法选择棋子 " + move.getBlockId());
+                        animationTimer.stop();
+                        finishAISession();
+                        return;
+                    }
+
+                    Direction3 moveDirection = determineDirection(move.getFromX(), move.getFromY(), move.getToX(), move.getToY());
+
+                    if (moveDirection == null) {
+                        System.err.println("AI 动画错误: 无法确定方向 " + move);
+                        animationTimer.stop();
+                        finishAISession();
+                        return;
+                    }
+
+                    boolean moved = gameLogic3.moveSelectedBlock(moveDirection);
+
+                    if (moved) {
+                        refreshGameView();
+                    } else {
+                        System.err.println("AI 动画错误: 移动失败 " + move);
+                        animationTimer.stop();
+                        finishAISession();
+                        return;
+                    }
+                    currentMoveIndex++;
+                } else {
+                    animationTimer.stop();
+                    finishAISession();
+                    checkAndShowWinDialog();
+                }
+            }
+        });
+        animationTimer.start();
+    }
+
+    private Direction3 determineDirection(int fromX, int fromY, int toX, int toY) {
+        int dx = toX - fromX;
+        int dy = toY - fromY;
+
+        if (dx == 0 && dy == -1) return Direction3.UP;
+        if (dx == 0 && dy == 1) return Direction3.DOWN;
+        if (dx == -1 && dy == 0) return Direction3.LEFT;
+        if (dx == 1 && dy == 0) return Direction3.RIGHT;
+
+        return null;
+    }
+
+
+    private void finishAISession() {
+        controlPanel3.setAllButtonsEnabled(true);
+        this.setFocusable(true);
+        this.requestFocusInWindow();
+        isAISolving = false;
+
+        if (!gameLogic3.getGameState().isGameWon() && !gameLogic3.getGameState().isTimeUp()) {
+            if (gameTimer != null && !gameTimer.isRunning()) {
+                gameTimer.start();
+            }
+        }
+    }
+
+    @Override
+    public void dispose() {
+        if (animationTimer != null && animationTimer.isRunning()) {
+            animationTimer.stop();
+        }
+        if (gameTimer != null) {
+            gameTimer.stop();
+        }
+        super.dispose();
+    }
 
 }

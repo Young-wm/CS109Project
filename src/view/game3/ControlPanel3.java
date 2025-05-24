@@ -22,6 +22,7 @@ public class ControlPanel3 extends JPanel implements ActionListener {
     private JButton undoButton, resetButton;
     private JButton saveButton, loadButton;
     //这里创建了游戏中的所有Button
+    private JButton aiSolveButton;
 
     public ControlPanel3(GameFrame3 frame) {
         this.mainFrame = frame;
@@ -57,6 +58,7 @@ public class ControlPanel3 extends JPanel implements ActionListener {
         saveButton = new JButton("Save");
         loadButton = new JButton("Load");
         // 创建按钮
+        aiSolveButton = new JButton("AI");
 
         // 上按钮 (第0行，第1列)
         gbc.gridx = 1;
@@ -100,6 +102,14 @@ public class ControlPanel3 extends JPanel implements ActionListener {
         gbc.gridy = 2;
         add(loadButton, gbc);
 
+        // AI 按钮 (第3行, 第0列, 横跨4列)
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.gridwidth = 4; // 让它横跨所有列
+        gbc.anchor = GridBagConstraints.CENTER; // 居中
+        add(aiSolveButton, gbc);
+        gbc.gridwidth = 1; // 记得重置 gridwidth
+
         upButton.addActionListener(this);
         downButton.addActionListener(this);
         leftButton.addActionListener(this);
@@ -108,6 +118,7 @@ public class ControlPanel3 extends JPanel implements ActionListener {
         resetButton.addActionListener(this);
         saveButton.addActionListener(this);
         loadButton.addActionListener(this);
+        aiSolveButton.addActionListener(this);
         // 为所有按钮添加动作监听器
     }
 
@@ -133,10 +144,27 @@ public class ControlPanel3 extends JPanel implements ActionListener {
             mainFrame.handleSave();
         } else if (source == loadButton) {
             mainFrame.handleLoad();
+        }else if (source == aiSolveButton) {
+            mainFrame.handleAISolve(); // 调用 GameFrame3 中的新方法
         }
         mainFrame.requestFocusInWindow();
     }
     // 这个方法实现了 ActionListener 接口
+
+    public void setAllButtonsEnabled(boolean enabled) {
+        upButton.setEnabled(enabled);
+        downButton.setEnabled(enabled);
+        leftButton.setEnabled(enabled);
+        rightButton.setEnabled(enabled);
+        undoButton.setEnabled(enabled);
+        resetButton.setEnabled(enabled);
+        saveButton.setEnabled(enabled);
+        loadButton.setEnabled(enabled);
+        if (aiSolveButton != null) {
+            aiSolveButton.setEnabled(enabled);
+        }
+    }
+
 
     private void handleMovement(Direction3 direction3) {
         boolean moved = mainFrame.getGameLogic().moveSelectedBlock(direction3);
