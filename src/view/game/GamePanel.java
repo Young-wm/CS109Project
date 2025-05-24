@@ -46,6 +46,9 @@ public class GamePanel extends JPanel {
     // 皮肤切换按钮
     private JButton skinToggleButton = new JButton("切换皮肤");
     
+    // 鼠标追踪器
+    private MouseTracker mouseTracker;
+    
     public GamePanel(GameLogic logic) {
         this.gameLogic = logic;
         //这里传入的就是GameFrame里面的gameLogic
@@ -89,6 +92,11 @@ public class GamePanel extends JPanel {
                 skinToggleButton.setBounds(10, 10, 100, 30);
             }
         });
+        
+        // 初始化鼠标追踪器
+        mouseTracker = new MouseTracker(this);
+        // 设置鼠标轨迹颜色
+        mouseTracker.setTrackColor(new Color(255, 215, 0, 150)); // 金色半透明
     }
     
     /**
@@ -379,6 +387,9 @@ public class GamePanel extends JPanel {
             g2d.drawRect(selX + 1, selY + 1, selWidth - 2, selHeight - 2);
             g2d.setStroke(new BasicStroke(1));
         }
+        
+        // 绘制鼠标追踪和自定义光标
+        mouseTracker.paint(g);
     }
     
     /**
@@ -398,25 +409,43 @@ public class GamePanel extends JPanel {
     }
     
     /**
-     * 以下是空实现的鼠标追踪相关方法，保留以确保编译通过
+     * 设置自定义光标
+     * @param imagePath 图像路径
+     * @param hotspotX 热点X坐标
+     * @param hotspotY 热点Y坐标
      */
     public void setCustomCursor(String imagePath, int hotspotX, int hotspotY) {
-        // 空实现
+        mouseTracker.setCustomCursor(imagePath, hotspotX, hotspotY);
     }
-
+    
+    /**
+     * 恢复默认光标
+     */
     public void restoreDefaultCursor() {
-        // 空实现
+        mouseTracker.restoreDefaultCursor();
     }
-
+    
+    /**
+     * 设置是否显示鼠标轨迹
+     * @param show 是否显示
+     */
     public void setShowMouseTrack(boolean show) {
-        // 空实现
+        mouseTracker.setShowTrack(show);
     }
-
+    
+    /**
+     * 设置鼠标轨迹颜色
+     * @param color 颜色
+     */
     public void setMouseTrackColor(Color color) {
-        // 空实现
+        mouseTracker.setTrackColor(color);
     }
-
+    
+    /**
+     * 设置鼠标轨迹线宽
+     * @param width 线宽
+     */
     public void setMouseTrackWidth(float width) {
-        // 空实现
+        mouseTracker.setTrackWidth(width);
     }
 }

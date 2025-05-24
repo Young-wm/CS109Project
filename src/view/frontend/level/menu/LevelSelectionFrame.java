@@ -10,16 +10,13 @@ import view.frontend.controller.HoverButton;
 import view.frontend.TextAnimator;
 import view.audio.AudioManager;
 import view.frontend.resourses.ResourceManager;
-import view.frontend.resourses.ImageTransformer;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
-import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import java.io.File;
@@ -37,13 +34,14 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
     private int totalLevels;
     
     // 轮盘参数
-    private static final int MAIN_PANEL_WIDTH = 400;
-    private static final int MAIN_PANEL_HEIGHT = 400; // 正方形布局
-    private static final int SIDE_PANEL_WIDTH = 250;
-    private static final int SIDE_PANEL_HEIGHT = 300;
-    private static final float MAIN_PANEL_ALPHA = 1.0f; // 中间面板完全不透明
-    private static final float SIDE_PANEL_ALPHA = 0.6f; // 增加侧面板透明度
-    private static final double TRAPEZOID_FACTOR = 0.3; // 梯形变换程度
+    private static final int MAIN_PANEL_SIZE = 350; // 中心面板改为正方形
+    private static final int SIDE_PANEL_WIDTH = 220;
+    private static final int SIDE_PANEL_HEIGHT = 220;
+    private static final float SIDE_PANEL_ALPHA = 0.7f; // 侧面板透明度
+    
+    // 梯形效果参数
+    private static final double TRAPEZOID_TOP_RATIO = 0.8; // 梯形顶部宽度比例
+    private static final double TRAPEZOID_BOTTOM_RATIO = 1.0; // 梯形底部宽度比例
     
     public LevelSelectionFrame() {
         try {
@@ -70,7 +68,7 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
 
             JLabel titleLabel = new JLabel("请选择关卡", SwingConstants.CENTER);
             titleLabel.setFont(new Font("微软雅黑", Font.BOLD, 24));
-            titleLabel.setForeground(Color.BLACK);
+            titleLabel.setForeground(Color.WHITE);
             add(titleLabel, BorderLayout.NORTH);
             
             // 获取关卡数量，确保至少有一个关卡
@@ -97,6 +95,9 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
             // 更新关卡详情
             updateLevelDetailPanel(selectedLevel);
             
+            // 设置自定义鼠标光标
+            setCustomCursor();
+            
             // 播放背景音乐
             try {
                 AudioManager.getInstance().playDefaultBGM();
@@ -113,7 +114,7 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
             JPanel errorPanel = new JPanel(new BorderLayout());
             errorPanel.setBackground(new Color(30, 30, 30));
             JLabel errorLabel = new JLabel("加载关卡选择界面失败，请检查资源文件", SwingConstants.CENTER);
-            errorLabel.setForeground(Color.BLACK);
+            errorLabel.setForeground(Color.WHITE);
             errorLabel.setFont(new Font("微软雅黑", Font.BOLD, 18));
             errorPanel.add(errorLabel, BorderLayout.CENTER);
             
@@ -212,30 +213,29 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
                 carouselPanel.add(levelPanel);
             }
             
-            // 创建左侧切换按钮
+            // 创建左右切换按钮
             HoverButton prevButton = new HoverButton("<");
             prevButton.setFont(new Font("Arial", Font.BOLD, 24));
+            prevButton.setBounds(20, carouselPanel.getHeight() / 2 - 25, 50, 50);
             prevButton.addActionListener(e -> {
                 try {
                     AudioManager.getInstance().playDefaultButtonClickSound();
                 } catch (Exception ex) {
                     System.err.println("播放按钮点击音效失败");
                 }
-                // 修改旋转逻辑为 "123"->"231"
-                rotateCarousel(false);
+                rotateCarousel(false); // 向左旋转
             });
             
-            // 创建右侧切换按钮
             HoverButton nextButton = new HoverButton(">");
             nextButton.setFont(new Font("Arial", Font.BOLD, 24));
+            nextButton.setBounds(carouselPanel.getWidth() - 70, carouselPanel.getHeight() / 2 - 25, 50, 50);
             nextButton.addActionListener(e -> {
                 try {
                     AudioManager.getInstance().playDefaultButtonClickSound();
                 } catch (Exception ex) {
                     System.err.println("播放按钮点击音效失败");
                 }
-                // 旋转逻辑为 "123"->"312"
-                rotateCarousel(true);
+                rotateCarousel(true); // 向右旋转
             });
             
             carouselPanel.add(prevButton);
@@ -251,7 +251,7 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
             carouselPanel = new JPanel(new BorderLayout());
             carouselPanel.setBackground(new Color(0, 30, 60));
             JLabel errorLabel = new JLabel("无法加载关卡选择界面，请检查资源文件", SwingConstants.CENTER);
-            errorLabel.setForeground(Color.BLACK);
+            errorLabel.setForeground(Color.WHITE);
             errorLabel.setFont(new Font("微软雅黑", Font.BOLD, 18));
             carouselPanel.add(errorLabel, BorderLayout.CENTER);
         }
@@ -268,8 +268,8 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
         
         // 关卡标题
         JLabel titleLabel = new JLabel("关卡 " + levelNum, SwingConstants.CENTER);
-        titleLabel.setFont(new Font("微软雅黑", Font.BOLD, 18));
-        titleLabel.setForeground(Color.BLACK);
+        titleLabel.setFont(new Font("微软雅黑", Font.BOLD, 20));
+        titleLabel.setForeground(Color.WHITE);
         panel.add(titleLabel, BorderLayout.NORTH);
         
         // 关卡图片（可以根据关卡编号加载不同图片）
@@ -285,19 +285,34 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
         
         JLabel imageLabel;
         if (levelImage != null) {
-            imageLabel = new JLabel(new ImageIcon(levelImage));
+            // 预缩放图像以适应面板大小
+            Image scaledImage = levelImage.getScaledInstance(
+                MAIN_PANEL_SIZE - 50, 
+                MAIN_PANEL_SIZE - 100, 
+                Image.SCALE_SMOOTH
+            );
+            imageLabel = new JLabel(new ImageIcon(scaledImage));
         } else {
             // 如果没有图片，使用纯色面板
             JPanel colorPanel = new JPanel();
             colorPanel.setBackground(new Color(30, 30, 30 + levelNum * 20));
-            colorPanel.setPreferredSize(new Dimension(MAIN_PANEL_WIDTH - 50, MAIN_PANEL_HEIGHT - 100));
+            colorPanel.setPreferredSize(new Dimension(MAIN_PANEL_SIZE - 50, MAIN_PANEL_SIZE - 100));
+            colorPanel.setBorder(BorderFactory.createLineBorder(Color.WHITE, 2));
+            
+            // 在颜色面板中添加关卡信息
+            colorPanel.setLayout(new BorderLayout());
+            JLabel infoLabel = new JLabel("<html><div style='text-align: center;'>" +
+                "<h2>关卡 " + levelNum + "</h2>" +
+                "<p>华容道谜题</p>" +
+                "</div></html>", SwingConstants.CENTER);
+            infoLabel.setForeground(Color.WHITE);
+            infoLabel.setFont(new Font("微软雅黑", Font.PLAIN, 14));
+            colorPanel.add(infoLabel, BorderLayout.CENTER);
+            
             imageLabel = new JLabel();
             imageLabel.add(colorPanel);
         }
         panel.add(imageLabel, BorderLayout.CENTER);
-        
-        // 保存关卡图像引用，供梯形变换使用
-        panel.putClientProperty("originalImage", levelImage);
         
         return panel;
     }
@@ -313,7 +328,7 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
             }
             
             int centerX = carouselPanel.getWidth() / 2;
-            int centerY = carouselPanel.getHeight() / 2; // 正中央
+            int centerY = carouselPanel.getHeight() / 2;
             
             // 确保selectedLevel在有效范围内
             if (selectedLevel < 1 || selectedLevel > totalLevels) {
@@ -327,65 +342,43 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
             int prevIndex = (currentIndex - 1 + totalLevels) % totalLevels;
             int nextIndex = (currentIndex + 1) % totalLevels;
             
-            // 计算按钮位置
-            Component[] components = carouselPanel.getComponents();
-            for (Component comp : components) {
-                if (comp instanceof HoverButton) {
-                    HoverButton button = (HoverButton) comp;
-                    if ("<".equals(button.getText())) {
-                        // 左侧按钮
-                        button.setBounds(20, centerY - 25, 50, 50);
-                    } else if (">".equals(button.getText())) {
-                        // 右侧按钮
-                        button.setBounds(carouselPanel.getWidth() - 70, centerY - 25, 50, 50);
-                    }
-                }
-            }
-            
             // 重新布局所有关卡面板
             for (int i = 0; i < levelPanels.size(); i++) {
                 JPanel panel = levelPanels.get(i);
-                Image originalImage = (Image) panel.getClientProperty("originalImage");
                 
                 if (i == currentIndex) {
-                    // 当前选中关卡居中显示，设置为正方形
+                    // 当前选中关卡居中显示 - 方形且完全不透明
                     panel.setBounds(
-                        centerX - MAIN_PANEL_WIDTH / 2,
-                        centerY - MAIN_PANEL_HEIGHT / 2,
-                        MAIN_PANEL_WIDTH,
-                        MAIN_PANEL_HEIGHT
+                        centerX - MAIN_PANEL_SIZE / 2,
+                        centerY - MAIN_PANEL_SIZE / 2,
+                        MAIN_PANEL_SIZE,
+                        MAIN_PANEL_SIZE
                     );
                     panel.setVisible(true);
-                    
-                    // 当前关卡不需要变形和透明度处理
-                    updatePanelWithOriginalImage(panel, originalImage);
-                    
+                    // 重置透明度为完全不透明
+                    setComponentAlpha(panel, 1.0f);
                 } else if (i == prevIndex) {
-                    // 前一个关卡显示在左侧，设置为梯形效果（长边在右侧）
+                    // 前一个关卡显示在左侧 - 梯形效果
                     panel.setBounds(
-                        centerX - MAIN_PANEL_WIDTH / 2 - SIDE_PANEL_WIDTH,
+                        centerX - MAIN_PANEL_SIZE / 2 - SIDE_PANEL_WIDTH + 20,
                         centerY - SIDE_PANEL_HEIGHT / 2,
                         SIDE_PANEL_WIDTH,
                         SIDE_PANEL_HEIGHT
                     );
                     panel.setVisible(true);
-                    
-                    // 应用梯形变换（左侧梯形）
-                    updatePanelWithTrapezoidImage(panel, originalImage, false, SIDE_PANEL_ALPHA);
-                    
+                    // 应用梯形和透明度效果
+                    applyTrapezoidEffect(panel, true); // true = 左侧梯形
                 } else if (i == nextIndex) {
-                    // 后一个关卡显示在右侧，设置为梯形效果（长边在左侧）
+                    // 后一个关卡显示在右侧 - 梯形效果
                     panel.setBounds(
-                        centerX + MAIN_PANEL_WIDTH / 2,
+                        centerX + MAIN_PANEL_SIZE / 2 - 20,
                         centerY - SIDE_PANEL_HEIGHT / 2,
                         SIDE_PANEL_WIDTH,
                         SIDE_PANEL_HEIGHT
                     );
                     panel.setVisible(true);
-                    
-                    // 应用梯形变换（右侧梯形）
-                    updatePanelWithTrapezoidImage(panel, originalImage, true, SIDE_PANEL_ALPHA);
-                    
+                    // 应用梯形和透明度效果
+                    applyTrapezoidEffect(panel, false); // false = 右侧梯形
                 } else {
                     // 其他关卡隐藏
                     panel.setVisible(false);
@@ -405,52 +398,105 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
     }
     
     /**
-     * 更新面板中的图像为原始图像
-     * @param panel 要更新的面板
-     * @param originalImage 原始图像
+     * 设置组件透明度
+     * @param component 组件
+     * @param alpha 透明度 (0.0-1.0)
      */
-    private void updatePanelWithOriginalImage(JPanel panel, Image originalImage) {
-        if (originalImage == null) return;
-        
-        // 查找面板中的图像标签
-        for (Component c : panel.getComponents()) {
-            if (c instanceof JLabel && ((JLabel) c).getIcon() instanceof ImageIcon) {
-                JLabel imgLabel = (JLabel) c;
-                imgLabel.setIcon(new ImageIcon(originalImage));
-                break;
+    private void setComponentAlpha(JComponent component, float alpha) {
+        component.setOpaque(false);
+        for (Component child : component.getComponents()) {
+            if (child instanceof JComponent) {
+                ((JComponent) child).setOpaque(false);
             }
         }
     }
     
     /**
-     * 更新面板中的图像为梯形图像
-     * @param panel 要更新的面板
-     * @param originalImage 原始图像
-     * @param isRightSide 是否是右侧梯形
-     * @param alpha 透明度
+     * 应用梯形效果到面板
+     * @param panel 要应用效果的面板
+     * @param isLeftSide 是否为左侧面板（影响梯形方向）
      */
-    private void updatePanelWithTrapezoidImage(JPanel panel, Image originalImage, boolean isRightSide, float alpha) {
-        if (originalImage == null) return;
-        
+    private void applyTrapezoidEffect(JPanel panel, boolean isLeftSide) {
         try {
-            // 创建梯形图像
-            BufferedImage trapezoidImage = ImageTransformer.createTrapezoidImage(
-                originalImage, isRightSide, TRAPEZOID_FACTOR);
+            // 设置面板为透明
+            panel.setOpaque(false);
             
-            // 应用透明度
-            BufferedImage finalImage = ImageTransformer.setImageAlpha(trapezoidImage, alpha);
+            // 递归处理所有子组件
+            applyTrapezoidEffectRecursive(panel, isLeftSide);
             
-            // 查找面板中的图像标签并更新
-            for (Component c : panel.getComponents()) {
-                if (c instanceof JLabel && ((JLabel) c).getIcon() instanceof ImageIcon) {
-                    JLabel imgLabel = (JLabel) c;
-                    imgLabel.setIcon(new ImageIcon(finalImage));
-                    break;
+        } catch (Exception e) {
+            System.err.println("应用梯形效果失败: " + e.getMessage());
+            e.printStackTrace();
+            // 如果梯形效果失败，至少应用透明度效果
+            setComponentAlpha(panel, SIDE_PANEL_ALPHA);
+        }
+    }
+    
+    /**
+     * 递归应用梯形效果到组件及其子组件
+     * @param component 要处理的组件
+     * @param isLeftSide 是否为左侧面板
+     */
+    private void applyTrapezoidEffectRecursive(Component component, boolean isLeftSide) {
+        if (component instanceof JLabel) {
+            JLabel label = (JLabel) component;
+            Icon icon = label.getIcon();
+            
+            if (icon instanceof ImageIcon) {
+                ImageIcon imageIcon = (ImageIcon) icon;
+                Image originalImage = imageIcon.getImage();
+                
+                // 根据是左侧还是右侧调整梯形参数
+                double topRatio, bottomRatio;
+                if (isLeftSide) {
+                    // 左侧梯形：左宽右窄
+                    topRatio = TRAPEZOID_BOTTOM_RATIO;
+                    bottomRatio = TRAPEZOID_TOP_RATIO;
+                } else {
+                    // 右侧梯形：左窄右宽
+                    topRatio = TRAPEZOID_TOP_RATIO;
+                    bottomRatio = TRAPEZOID_BOTTOM_RATIO;
+                }
+                
+                // 应用梯形和透明度效果
+                Image processedImage = ResourceManager.createTrapezoidAlphaImage(
+                    originalImage,
+                    SIDE_PANEL_WIDTH,
+                    SIDE_PANEL_HEIGHT,
+                    topRatio,
+                    bottomRatio,
+                    SIDE_PANEL_ALPHA
+                );
+                
+                if (processedImage != null) {
+                    label.setIcon(new ImageIcon(processedImage));
                 }
             }
-        } catch (Exception e) {
-            System.err.println("创建梯形图像失败");
-            e.printStackTrace();
+        } else if (component instanceof JPanel) {
+            JPanel childPanel = (JPanel) component;
+            childPanel.setOpaque(false);
+            
+            // 如果是颜色面板，应用透明度效果
+            Color originalColor = childPanel.getBackground();
+            if (originalColor != null) {
+                Color transparentColor = new Color(
+                    originalColor.getRed(),
+                    originalColor.getGreen(),
+                    originalColor.getBlue(),
+                    (int) (255 * SIDE_PANEL_ALPHA)
+                );
+                childPanel.setBackground(transparentColor);
+            }
+            
+            // 递归处理子组件
+            for (Component child : childPanel.getComponents()) {
+                applyTrapezoidEffectRecursive(child, isLeftSide);
+            }
+        }
+        
+        // 设置组件透明
+        if (component instanceof JComponent) {
+            ((JComponent) component).setOpaque(false);
         }
     }
     
@@ -460,10 +506,8 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
      */
     private void rotateCarousel(boolean clockwise) {
         if (clockwise) {
-            // 修改为 "123"->"312" 的效果
             selectedLevel = (selectedLevel % totalLevels) + 1;
         } else {
-            // 修改为 "123"->"231" 的效果
             selectedLevel = (selectedLevel - 1 == 0) ? totalLevels : selectedLevel - 1;
         }
         
@@ -481,7 +525,7 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
         
         levelDescriptionLabel = new JLabel("", SwingConstants.CENTER);
         levelDescriptionLabel.setFont(new Font("微软雅黑", Font.PLAIN, 16));
-        levelDescriptionLabel.setForeground(Color.BLACK);
+        levelDescriptionLabel.setForeground(Color.WHITE);
         levelDetailPanel.add(levelDescriptionLabel, BorderLayout.CENTER);
         
         // 初始化文本动画器
@@ -570,46 +614,107 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
      * @param levelNum 关卡编号
      */
     private void updateLevelDetailPanel(int levelNum) {
-        if (textAnimator != null && levelDescriptionLabel != null) {
-            String description = getDescriptionForLevel(levelNum);
-            textAnimator.animateText(description);
+        // 更新关卡描述
+        String description;
+        
+        switch (levelNum) {
+            case 1:
+                description = "关卡1：初级难度\n这是一个入门级别的华容道谜题，适合新手玩家。\n目标：将曹操移动到底部出口。";
+                break;
+            case 2:
+                description = "关卡2：中级难度\n这个关卡难度适中，需要一定的思考能力。\n目标：将曹操移动到底部出口。";
+                break;
+            case 3:
+                description = "关卡3：高级难度\n这是一个挑战性的关卡，需要深思熟虑的策略。\n目标：在限定时间内完成谜题。";
+                break;
+            default:
+                description = "关卡" + levelNum + "：\n这是一个标准难度的华容道谜题。\n目标：将曹操移动到底部出口。";
+                break;
+        }
+        
+        // 使用动画显示文本，添加空指针检查
+        try {
+            if (textAnimator != null) {
+                textAnimator.animateText(description);
+            } else {
+                // 如果textAnimator为null，直接设置文本
+                if (levelDescriptionLabel != null) {
+                    levelDescriptionLabel.setText(description);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("显示关卡描述文本失败");
+            e.printStackTrace();
+            // 直接设置文本作为备选方案
+            if (levelDescriptionLabel != null) {
+                levelDescriptionLabel.setText(description);
+            }
+        }
+        
+        // 刷新界面
+        if (levelDetailPanel != null) {
+            levelDetailPanel.revalidate();
+            levelDetailPanel.repaint();
         }
     }
     
     /**
-     * 获取关卡描述
+     * 重写组件调整大小方法，更新轮盘布局
      */
-    private String getDescriptionForLevel(int levelNum) {
-        switch (levelNum) {
-            case 1:
-                return "关卡1：简单难度 - 学习游戏的基本操作";
-            case 2:
-                return "关卡2：困难难度 - 经典\"横刀立马\"布局，需更复杂的移动组合";
-            case 3:
-                return "关卡3：限时模式 - 在关卡2的基础上增加时间限制，挑战更高的效率";
-            default:
-                return "关卡" + levelNum + "：挑战等待着你！";
+    @Override
+    public void componentResized(java.awt.event.ComponentEvent e) {
+        if (carouselPanel != null) {
+            updateCarouselLayout();
         }
     }
     
-    // 实现ComponentListener接口的方法
-    @Override
-    public void componentResized(ComponentEvent e) {
-        updateCarouselLayout();
-    }
-
+    // Add other required methods for ComponentListener
     @Override
     public void componentMoved(ComponentEvent e) {
-        // 窗口移动时无需特殊处理
+        // Not used
     }
 
     @Override
     public void componentShown(ComponentEvent e) {
-        // 窗口显示时无需特殊处理
+        // Not used
     }
 
     @Override
     public void componentHidden(ComponentEvent e) {
-        // 窗口隐藏时无需特殊处理
+        // Not used
+    }
+    
+    /**
+     * 设置自定义鼠标光标
+     */
+    private void setCustomCursor() {
+        try {
+            // 尝试设置自定义光标
+            ResourceManager.setCursor(this, "images/cursor.png", 0, 0);
+        } catch (Exception e) {
+            System.err.println("设置自定义光标失败，将使用默认光标");
+            e.printStackTrace();
+            // 失败时使用默认光标
+            setCursor(Cursor.getDefaultCursor());
+        }
+    }
+    
+    /**
+     * 主方法，用于测试
+     */
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            try {
+                LevelSelectionFrame frame = new LevelSelectionFrame();
+                frame.setCustomCursor(); // 设置自定义光标
+                frame.setVisible(true);
+            } catch (Exception e) {
+                System.err.println("启动关卡选择界面失败");
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(null, 
+                    "启动游戏界面失败。\n错误信息: " + e.getMessage(), 
+                    "错误", JOptionPane.ERROR_MESSAGE);
+            }
+        });
     }
 }

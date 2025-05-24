@@ -1,6 +1,7 @@
 package view.game4;
 
-import controller4.*;
+import controller4.Direction4;
+import controller4.GameLogic4;
 import view.frontend.resourses.ResourceManager;
 import view.audio.AudioManager;
 import view.frontend.LoginFrame.AuthFrame;
@@ -151,13 +152,17 @@ public class GameFrame4 extends JFrame {
             //排版布局准备将整个游戏放在正中间，然后把控制按钮放在底部，状态信息放在顶部
 
             // 初始化并启动游戏计时器
-            setupGameTimer();            // 添加键盘监听器
+            setupGameTimer();
+
+            // 添加键盘监听器
             setupKeyboardControls();
+
+            // 设置自定义鼠标光标
+            setCustomCursor();
 
             pack();
             //一个非常好用的方法，它能够让内容自动调整窗口大小
             //这个方法的使用一般是在加完组件之后，setVisible之前
-            
             setLocationRelativeTo(null); // 窗口居中显示
             setResizable(true);
             //使游戏窗口大小可调，如果后期不方便可以设为false

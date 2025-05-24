@@ -118,7 +118,7 @@ public class AISolver3 {
         Board3 currentBoard = currentParentState.getBoard();
 
         for (Block3 originalBlock : currentBoard.getBlocksCopy().values()) {
-            if (originalBlock.getId() == Board3.EMPTY_CELL_ID) {
+      a      if (originalBlock.getId() == Board3.EMPTY_CELL_ID) {
                 continue;
             }
 
