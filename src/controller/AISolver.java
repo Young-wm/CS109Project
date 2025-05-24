@@ -76,7 +76,7 @@ public class AISolver {
         queue.add(initialNode);
         visitedBoards.add(boardToString(initialNode.getGameState().getBoard()));
 
-        int statesProcessed = 0;
+        long statesProcessed = 0;
         // 计数器，用于调试和观察进度
 
         while (!queue.isEmpty()) {
@@ -104,7 +104,7 @@ public class AISolver {
                 }
             }
             // 增加一个状态数量上限，防止无限运行或运行时间过长（对于复杂局面）
-            if (statesProcessed > 100000000) { // 例如，1亿个状态
+            if (statesProcessed > 1000000000) { //10亿个状态
                 System.out.println("AI: 已处理超过 " + statesProcessed + " 个状态，搜索中止以防超时。");
                 return Collections.emptyList(); // 返回空表示未在限制内找到解
             }
