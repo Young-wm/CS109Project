@@ -22,6 +22,7 @@ public class ControlPanel extends JPanel implements ActionListener {
     private JButton undoButton, resetButton;
     private JButton saveButton, loadButton;
     //这里创建了游戏中的所有Button
+    private JButton aiSolveButton;
 
     public ControlPanel(GameFrame frame) {
         this.mainFrame = frame;
@@ -57,6 +58,7 @@ public class ControlPanel extends JPanel implements ActionListener {
         saveButton = new JButton("Save");
         loadButton = new JButton("Load");
         // 创建按钮
+        aiSolveButton = new JButton("AI");
 
         // 上按钮 (第0行，第1列)
         gbc.gridx = 1;
@@ -100,6 +102,14 @@ public class ControlPanel extends JPanel implements ActionListener {
         gbc.gridy = 2;
         add(loadButton, gbc);
 
+        gbc.gridy = 3; // 放在下一行
+        gbc.gridx = 0;
+        gbc.gridwidth = 4; // 让它横跨4列
+        gbc.anchor = GridBagConstraints.CENTER; // 居中
+        add(aiSolveButton, gbc);
+        gbc.gridwidth = 1; // 重置gridwidth
+
+
         upButton.addActionListener(this);
         downButton.addActionListener(this);
         leftButton.addActionListener(this);
@@ -109,6 +119,7 @@ public class ControlPanel extends JPanel implements ActionListener {
         saveButton.addActionListener(this);
         loadButton.addActionListener(this);
         // 为所有按钮添加动作监听器
+        aiSolveButton.addActionListener(this);
     }
 
 
@@ -133,10 +144,28 @@ public class ControlPanel extends JPanel implements ActionListener {
             mainFrame.handleSave();
         } else if (source == loadButton) {
             mainFrame.handleLoad();
+        }else if (source == aiSolveButton) {
+            mainFrame.handleAISolve();
         }
         mainFrame.requestFocusInWindow();
+
     }
     // 这个方法实现了 ActionListener 接口
+
+    public void setAllButtonsEnabled(boolean enabled) {
+        upButton.setEnabled(enabled);
+        downButton.setEnabled(enabled);
+        leftButton.setEnabled(enabled);
+        rightButton.setEnabled(enabled);
+        undoButton.setEnabled(enabled);
+        resetButton.setEnabled(enabled);
+        saveButton.setEnabled(enabled);
+        loadButton.setEnabled(enabled);
+        if (aiSolveButton != null) {
+            aiSolveButton.setEnabled(enabled);
+        }
+    }
+    // 这个方法的增加是为了在实现ai功能时，所有按键是禁用的，保证不会干扰ai功能的进行
 
     private void handleMovement(Direction direction) {
         boolean moved = mainFrame.getGameLogic().moveSelectedBlock(direction);

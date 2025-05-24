@@ -116,6 +116,14 @@ public class GameState implements Serializable {
         this.gameWon = gameWon;
     }
 
+    public void setSteps(int steps) {
+        if (steps >= 0) {
+            this.steps = steps;
+        } else {
+            this.steps = 0;
+        }
+    }
+
 
     public void resetGame() {
         this.board = new Board();
@@ -139,4 +147,18 @@ public class GameState implements Serializable {
     }
 
     //同样顺手重写了equals和hashCode方法
+
+
+    public GameState(GameState other) {
+        this.board = new Board(other.board); // 使用 Board 的拷贝构造函数进行深拷贝
+        this.steps = other.steps;
+        this.elapsedTimeInSeconds = other.elapsedTimeInSeconds;
+        this.gameWon = other.gameWon;
+        // AI搜索中的路径是独立生成的，所以 moveHistory 通常不需要在这里深拷贝。
+        // 但对于我们的AI SearchNode，路径是单独维护的。
+        this.moveHistory = new Stack<>();
+        // AI的SearchNode会自己管理路径，这里给个空的就好
+    }
+    // 为了实现ai功能，这里也增加了一个拷贝构造函数，拷贝了所有GameState里面的内容
+
 }

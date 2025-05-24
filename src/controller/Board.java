@@ -209,4 +209,30 @@ public class Board implements Serializable {
         initialize();
     }
     //可以通过这个构造方法非常简洁快速地构造一个横刀立马的图，且所有东西都是初始化的
+
+
+
+    public Board(Board other) {
+        this.width = other.width;
+        this.height = other.height;
+        this.grid = new int[this.height][this.width];
+        this.blocks = new HashMap<>();
+
+        // 深拷贝棋子 (Block)
+        for (Map.Entry<Integer, Block> entry : other.blocks.entrySet()) {
+            Block originalBlock = entry.getValue();
+            Block copiedBlock = new Block(originalBlock.getId(), originalBlock.getName(),
+                    originalBlock.getWidth(), originalBlock.getHeight(),
+                    originalBlock.getX(), originalBlock.getY());
+            this.blocks.put(copiedBlock.getId(), copiedBlock);
+        }
+
+        // 深拷贝棋盘网格 (grid)
+        for (int i = 0; i < this.height; i++) {
+            this.grid[i] = Arrays.copyOf(other.grid[i], this.width);
+        }
+    }
+
+    // 为实现ai功能添加了一个拷贝构造函数的代码，实现了所有board变量的深拷贝
+
 }

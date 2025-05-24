@@ -1,9 +1,10 @@
 package view.game;
 
-import controller.GameLogic;
+import controller.*;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.List;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
@@ -47,6 +48,10 @@ public class GameFrame extends JFrame {
     //gameTimer.restart();重启
     //这个项目中可能用到的就是这几个方法
     private Timer autoSaveTimer;
+    private boolean isAISolving = false;
+    private Timer animationTimer;
+    private List<MoveRecord> solutionMoves;
+    private int currentMoveIndex;
 
     private static final String KLOTSKI_FILE_EXTENSION = "klotski";
     //定义存档文件的推荐扩展名，在储存时就定义好，后面找的时候更加方便
@@ -408,8 +413,192 @@ public class GameFrame extends JFrame {
     }
     //顺便写了一个gameLogic的getter以防其它开发的时候要用到GameFrame中的gameLogic
 
+    // 新增方法：处理AI求解请求
+    public void handleAISolve() {
+        if (isAISolving) {
+            JOptionPane.showMessageDialog(this, "AI 正在计算中，请稍候...", "AI 忙碌", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        if (gameLogic.getGameState().isGameWon()) { //
+            JOptionPane.showMessageDialog(this, "游戏已经胜利！无需 AI 求解。", "游戏结束", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        controlPanel.setAllButtonsEnabled(false);
+        isAISolving = true;
+        // 可选: 更新状态栏提示AI正在工作
+        // statusPanel.showTemporaryMessage("AI 计算中...");
+
+        SwingWorker<List<MoveRecord>, String> worker = new SwingWorker<List<MoveRecord>, String>() {
+            private long startTime;
+
+            @Override
+            protected List<MoveRecord> doInBackground() throws Exception {
+                publish("AI 开始求解...");
+                startTime = System.currentTimeMillis();
+                AISolver solver = new AISolver();
+                GameState currentStateForAI = new GameState(gameLogic.getGameState()); //
+                List<MoveRecord> solution = solver.solve(currentStateForAI);
+                long endTime = System.currentTimeMillis();
+                publish(String.format("AI 求解耗时: %.2f 秒", (endTime - startTime) / 1000.0));
+                return solution;
+            }
+
+            @Override
+            protected void process(List<String> chunks) {
+                for (String message : chunks) {
+                    System.out.println(message); // 或更新到状态栏
+                }
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<MoveRecord> solution = get();
+                    if (solution != null && !solution.isEmpty()) {
+                        publish("AI 找到解法，共 " + solution.size() + " 步。准备演示...");
+                        animateSolution(solution);
+                    } else {
+                        publish("AI 未能找到解法或被中断。");
+                        JOptionPane.showMessageDialog(GameFrame.this, "AI 未能找到解法。", "AI 求解结果", JOptionPane.INFORMATION_MESSAGE);
+                        finishAISession(); // 恢复UI
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    publish("AI 求解被中断。");
+                    JOptionPane.showMessageDialog(GameFrame.this, "AI 求解过程被中断。", "AI 错误", JOptionPane.ERROR_MESSAGE);
+                    finishAISession(); // 恢复UI
+                } catch (java.util.concurrent.ExecutionException e) {
+                    publish("AI 求解过程中发生错误。");
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(GameFrame.this, "AI 求解时发生错误: " + e.getCause().getMessage(), "AI 错误", JOptionPane.ERROR_MESSAGE);
+                    finishAISession(); // 恢复UI
+                }
+                // 如果动画没有启动（例如，没有解），确保按钮已恢复
+                if (animationTimer == null || !animationTimer.isRunning()) {
+                    if (isAISolving) { // 只有在确实是AI结束后才调用
+                        finishAISession();
+                    }
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    // 新增方法：动画演示解题步骤
+    private void animateSolution(List<MoveRecord> solution) {
+        if (solution == null || solution.isEmpty()) {
+            finishAISession();
+            return;
+        }
+        this.solutionMoves = solution;
+        this.currentMoveIndex = 0;
+
+        this.setFocusable(false); // 动画期间禁用键盘操作
+
+        // 动画开始前停止游戏相关计时器
+        if (gameTimer != null) gameTimer.stop(); //
+        if (autoSaveTimer != null) autoSaveTimer.stop(); //
+
+
+        int delay = 700; // 动画每一步的延迟
+        if (animationTimer != null && animationTimer.isRunning()) {
+            animationTimer.stop();
+        }
+        animationTimer = new Timer(delay, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (gameLogic.getGameState().isGameWon()) { //
+                    animationTimer.stop();
+                    finishAISession(); // 使用新的清理方法
+                    checkAndShowWinDialog(); //
+                    return;
+                }
+
+                if (currentMoveIndex < solutionMoves.size()) {
+                    MoveRecord move = solutionMoves.get(currentMoveIndex);
+                    boolean selectionSuccess = gameLogic.selectBlockAt(move.getFromX(), move.getFromY()); //
+
+                    if (!selectionSuccess || gameLogic.getSelectedBlock() == null || gameLogic.getSelectedBlock().getId() != move.getBlockId()) { //
+                        System.err.println("AI 动画错误: 选择棋子失败 " + move);
+                        animationTimer.stop();
+                        finishAISession();
+                        JOptionPane.showMessageDialog(GameFrame.this, "AI演示时选择棋子失败。", "AI演示错误", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+
+                    Direction moveDirection = determineDirection(move.getFromX(), move.getFromY(), move.getToX(), move.getToY());
+                    if (moveDirection == null) {
+                        System.err.println("AI 动画错误: 无法确定方向 " + move);
+                        animationTimer.stop();
+                        finishAISession();
+                        JOptionPane.showMessageDialog(GameFrame.this, "AI演示时无法确定移动方向。", "AI演示错误", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+
+                    boolean moved = gameLogic.moveSelectedBlock(moveDirection); //
+                    if (moved) {
+                        refreshGameView(); //
+                    } else {
+                        System.err.println("AI 动画错误: 移动执行失败 " + move);
+                        animationTimer.stop();
+                        finishAISession();
+                        JOptionPane.showMessageDialog(GameFrame.this, "AI演示的某一步未能执行。", "AI演示错误", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                    currentMoveIndex++;
+                } else {
+                    animationTimer.stop();
+                    finishAISession();
+                    System.out.println("AI 动画: 演示完成。");
+                    checkAndShowWinDialog(); //
+                }
+            }
+        });
+        animationTimer.start();
+    }
+
+    // 新增方法：统一处理AI会话结束（无论成功、失败、中断或动画完成）
+    private void finishAISession() {
+        controlPanel.setAllButtonsEnabled(true);
+        this.setFocusable(true);
+        this.requestFocusInWindow(); //
+        isAISolving = false;
+
+        // 仅当游戏未胜利时才重启计时器
+        if (!gameLogic.getGameState().isGameWon()) { //
+            if (gameTimer != null && !gameTimer.isRunning()) { //
+                gameTimer.start(); //
+            }
+            if (autoSaveTimer != null && !autoSaveTimer.isRunning()) { //
+                autoSaveTimer.start(); //
+            }
+        }
+    }
+
+
+    // 新增方法：根据坐标确定方向
+    private Direction determineDirection(int fromX, int fromY, int toX, int toY) {
+        int dx = toX - fromX;
+        int dy = toY - fromY;
+        // AI通常生成单位移动
+        if (dx == 0 && dy == -1) return Direction.UP;
+        if (dx == 0 && dy == 1) return Direction.DOWN;
+        if (dx == -1 && dy == 0) return Direction.LEFT;
+        if (dx == 1 && dy == 0) return Direction.RIGHT;
+        // 如果AI可能生成多格移动（虽然BFS通常不会直接这么做，除非canMove支持）
+        if (dx == 0 && dy < -1) return Direction.UP;
+        if (dx == 0 && dy > 1) return Direction.DOWN;
+        if (dx < -1 && dy == 0) return Direction.LEFT;
+        if (dx > 1 && dy == 0) return Direction.RIGHT;
+        return null;
+    }
+
     @Override
     public void dispose() {
+        if (animationTimer != null && animationTimer.isRunning()) {
+            animationTimer.stop();
+        }
         if (autoSaveTimer != null) {
             autoSaveTimer.stop(); // 确保在窗口销毁时停止自动保存计时器
         }
