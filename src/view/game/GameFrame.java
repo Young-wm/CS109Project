@@ -48,10 +48,17 @@ public class GameFrame extends JFrame {
     //gameTimer.restart();重启
     //这个项目中可能用到的就是这几个方法
     private Timer autoSaveTimer;
+
+
     private boolean isAISolving = false;
+    // 标记当前是否在进行ai解题
     private Timer animationTimer;
+    // 用来控制解题思路播放的一个计时器
     private List<MoveRecord> solutionMoves;
+    // 储存着正确答案的解题步骤
     private int currentMoveIndex;
+    // 这个field只是起到辅助作用，动画演示的时候index会从0到soulutionMoves().size - 1;
+
 
     private static final String KLOTSKI_FILE_EXTENSION = "klotski";
     //定义存档文件的推荐扩展名，在储存时就定义好，后面找的时候更加方便
@@ -413,184 +420,273 @@ public class GameFrame extends JFrame {
     }
     //顺便写了一个gameLogic的getter以防其它开发的时候要用到GameFrame中的gameLogic
 
-    // 新增方法：处理AI求解请求
+
+    //这里主要使用的是一个SwingWorker在后台处理AI解决棋盘的事件，然后再反馈到UI上
     public void handleAISolve() {
+        // 检查 AI 是否已在运行，防止重复启动
         if (isAISolving) {
             JOptionPane.showMessageDialog(this, "AI 正在计算中，请稍候...", "AI 忙碌", JOptionPane.INFORMATION_MESSAGE);
-            return;
+            return; // 如果已在运行，则不执行任何操作
         }
+        // 检查游戏是否已经胜利
         if (gameLogic.getGameState().isGameWon()) { //
             JOptionPane.showMessageDialog(this, "游戏已经胜利！无需 AI 求解。", "游戏结束", JOptionPane.INFORMATION_MESSAGE);
-            return;
+            return; // 如果已胜利，则不执行任何操作
         }
-
-        controlPanel.setAllButtonsEnabled(false);
+        // 标记 AI 开始运行
         isAISolving = true;
-        // 可选: 更新状态栏提示AI正在工作
-        // statusPanel.showTemporaryMessage("AI 计算中...");
+        // 禁用控制面板上的所有按钮，防止用户在 AI 运行时进行其他操作
+        controlPanel.setAllButtonsEnabled(false); // 假设 ControlPanel 中有 setAllButtonsEnabled 方法
+        System.out.println("AI: 请求已接收，开始准备求解...");
 
+
+        // 创建 SwingWorker 在后台执行 AI 计算
+        // 补充知识点：SwingWorker 就是为了解决这个“后台执行耗时任务，并在完成后安全更新UI”的矛盾而设计的。
+        // SwingWorker<T, V>：
+        //   T 是 doInBackground() 方法的返回类型 (我们的是 List<MoveRecord>)
+        //   V 是 publish() 方法传递给 process() 方法的数据类型 (我们用 String 来传递进度信息)
         SwingWorker<List<MoveRecord>, String> worker = new SwingWorker<List<MoveRecord>, String>() {
-            private long startTime;
+            private long startTime; // 用于记录AI开始计算的时间，以统计耗时
 
+            //这个方法是使用SwingWorker一定会重写到的方法，这里面完成了要再后台执行的逻辑，
+            // 即AI开始处理棋盘这件事情，
+            // publish()可以在SwingWorker的背后运行时传递信息给UI
             @Override
             protected List<MoveRecord> doInBackground() throws Exception {
-                publish("AI 开始求解...");
-                startTime = System.currentTimeMillis();
-                AISolver solver = new AISolver();
+                // 通过 publish 方法发送消息，这些消息会被 process 方法接收并处理 (可以在EDT线程更新UI)
+                publish("AI 开始求解..."); // 发送一个进度消息
+                startTime = System.currentTimeMillis(); // 记录开始时间
+
+                AISolver solver = new AISolver(); // 创建AI求解器实例
+                // 非常重要：为AI创建一个当前游戏状态的深拷贝！
+                // 这样AI的计算不会影响到当前玩家正在看到和操作的游戏状态。
+                // 这里依赖于 GameState 类中已正确实现拷贝构造函数。
                 GameState currentStateForAI = new GameState(gameLogic.getGameState()); //
-                List<MoveRecord> solution = solver.solve(currentStateForAI);
-                long endTime = System.currentTimeMillis();
-                publish(String.format("AI 求解耗时: %.2f 秒", (endTime - startTime) / 1000.0));
-                return solution;
+
+                List<MoveRecord> solution = solver.solve(currentStateForAI); // 调用AI的核心求解方法
+
+                long endTime = System.currentTimeMillis(); // 记录结束时间
+                publish(String.format("AI 求解耗时: %.2f 秒", (endTime - startTime) / 1000.0)); // 发送耗时信息
+
+                return solution; // 返回找到的解题路径
             }
 
+            //这个方法同样是运用SwingWorker常常要重写的方法，它用来处理程序在进行的时候发过来的信息并且更新在UI上面
             @Override
             protected void process(List<String> chunks) {
                 for (String message : chunks) {
-                    System.out.println(message); // 或更新到状态栏
+                    System.out.println(message);
                 }
             }
+
 
             @Override
             protected void done() {
                 try {
+                    // 调用 get() 方法获取 doInBackground() 的返回值 (即解题路径)
+                    // 注意: get() 方法可能会抛出 InterruptedException 或 ExecutionException
                     List<MoveRecord> solution = get();
+
                     if (solution != null && !solution.isEmpty()) {
+                        // 如果找到了解题路径 (列表不为null且不为空)
                         publish("AI 找到解法，共 " + solution.size() + " 步。准备演示...");
-                        animateSolution(solution);
+                        animateSolution(solution); // 调用方法开始动画演示解题步骤
+                        // 动画开始后，按钮的重新启用将由 animateSolution 的完成逻辑处理
                     } else {
+                        // 如果没有找到解法 (solution 为 null 或为空)
                         publish("AI 未能找到解法或被中断。");
                         JOptionPane.showMessageDialog(GameFrame.this, "AI 未能找到解法。", "AI 求解结果", JOptionPane.INFORMATION_MESSAGE);
-                        finishAISession(); // 恢复UI
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    publish("AI 求解被中断。");
-                    JOptionPane.showMessageDialog(GameFrame.this, "AI 求解过程被中断。", "AI 错误", JOptionPane.ERROR_MESSAGE);
-                    finishAISession(); // 恢复UI
-                } catch (java.util.concurrent.ExecutionException e) {
-                    publish("AI 求解过程中发生错误。");
-                    e.printStackTrace();
-                    JOptionPane.showMessageDialog(GameFrame.this, "AI 求解时发生错误: " + e.getCause().getMessage(), "AI 错误", JOptionPane.ERROR_MESSAGE);
-                    finishAISession(); // 恢复UI
-                }
-                // 如果动画没有启动（例如，没有解），确保按钮已恢复
-                if (animationTimer == null || !animationTimer.isRunning()) {
-                    if (isAISolving) { // 只有在确实是AI结束后才调用
+                        // AI结束，恢复UI状态 (按钮等)
                         finishAISession();
                     }
+                } catch (InterruptedException e) {
+                    // 如果后台任务被中断
+                    Thread.currentThread().interrupt(); // 保持中断状态
+                    publish("AI 求解被中断。");
+                    JOptionPane.showMessageDialog(GameFrame.this, "AI 求解过程被中断。", "AI 错误", JOptionPane.ERROR_MESSAGE);
+                    finishAISession(); // 恢复UI状态
+                } catch (java.util.concurrent.ExecutionException e) {
+                    // 如果后台任务在执行过程中抛出异常
+                    publish("AI 求解过程中发生错误。");
+                    e.printStackTrace(); // 打印详细的异常堆栈到控制台，帮助调试
+                    JOptionPane.showMessageDialog(GameFrame.this, "AI 求解时发生错误: " + e.getCause().getMessage(), "AI 错误", JOptionPane.ERROR_MESSAGE);
+                    finishAISession(); // 恢复UI状态
+                }
+                // 再次检查，确保如果动画没有启动或立即结束，UI状态能正确恢复
+                // （通常 animateSolution 会在开始时禁用按钮，在结束时通过 finishAISession 启用）
+                // 如果 animateSolution 没有被调用（例如无解），或者它内部立即失败并调用了 finishAISession，
+                // 这里的额外调用 finishAISession（如果 isAISolving 仍为 true）可以作为双重保障。
+                // 但更好的做法是让 animateSolution 和 done() 的失败路径都可靠地调用 finishAISession。
+                if (isAISolving && (animationTimer == null || !animationTimer.isRunning())) {
+                    finishAISession();
                 }
             }
         };
+
         worker.execute();
+        // 启动 SwingWorker，开始执行 doInBackground()
     }
 
-    // 新增方法：动画演示解题步骤
+
+
     private void animateSolution(List<MoveRecord> solution) {
+        // 如果传入的解法为空或无步骤，则直接结束AI会话并返回
         if (solution == null || solution.isEmpty()) {
-            finishAISession();
+            finishAISession(); // 恢复UI状态
             return;
         }
+        // 将AI找到的解题步骤存储到成员变量中，供动画计时器使用
         this.solutionMoves = solution;
+        // 初始化当前动画步骤的索引为0 (即从第一步开始)
         this.currentMoveIndex = 0;
 
-        this.setFocusable(false); // 动画期间禁用键盘操作
+        // 在动画播放期间，禁用 GameFrame 窗口的键盘焦点能力，防止用户按键干扰动画
+        this.setFocusable(false);
 
-        // 动画开始前停止游戏相关计时器
+        // 在动画开始前，停止游戏的主计时器和自动保存计时器
+        // 这样可以防止它们在动画播放时更新游戏时间或触发自动保存，从而干扰AI演示的状态
         if (gameTimer != null) gameTimer.stop(); //
         if (autoSaveTimer != null) autoSaveTimer.stop(); //
 
 
-        int delay = 700; // 动画每一步的延迟
+        // 设置动画每一步之间的时间间隔 (毫秒)
+        int delay = 500;
+        // 可以调整这个值来改变动画速度，这个值可能最后需要商量一下展示的时候用什么样的速度会更好一些
+
+        // 如果已存在一个动画计时器并且它正在运行，先停止它，以防之前的动画未完成
         if (animationTimer != null && animationTimer.isRunning()) {
             animationTimer.stop();
         }
+
+        // 创建一个新的 Swing Timer 用于动画
+        // Timer 的第一个参数是延迟时间 (delay)，第二个参数是 ActionListener，它会在每次延迟结束后被调用
         animationTimer = new Timer(delay, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                // 这个方法会在每个 'delay' 毫秒后被调用
+
+                // 首先检查游戏是否在动画过程中意外达到了胜利状态（理论上不应由动画本身触发，除非最后一步是胜利）
                 if (gameLogic.getGameState().isGameWon()) { //
-                    animationTimer.stop();
-                    finishAISession(); // 使用新的清理方法
-                    checkAndShowWinDialog(); //
-                    return;
+                    animationTimer.stop();      // 停止动画计时器
+                    finishAISession();          // 清理并恢复UI状态
+                    checkAndShowWinDialog();    // 显示胜利对话框
+                    return;                     // 结束 actionPerformed
                 }
 
+                // 检查是否还有动画步骤没有播放
                 if (currentMoveIndex < solutionMoves.size()) {
+                    // 获取当前要播放的这一步移动记录 (MoveRecord)
                     MoveRecord move = solutionMoves.get(currentMoveIndex);
+
+                    // 步骤A: "选择" AI要移动的棋子
+                    // GameLogic 的 moveSelectedBlock 方法需要先有一个 "selectedBlock"
+                    // 我们通过调用 selectBlockAt 来设置 gameLogic 内部的 selectedBlock
+                    // 参数是该棋子在这一步移动之前的坐标 (fromX, fromY)
                     boolean selectionSuccess = gameLogic.selectBlockAt(move.getFromX(), move.getFromY()); //
 
+                    // 验证选择是否成功，以及选中的棋子是否是AI想要移动的那个棋子
                     if (!selectionSuccess || gameLogic.getSelectedBlock() == null || gameLogic.getSelectedBlock().getId() != move.getBlockId()) { //
-                        System.err.println("AI 动画错误: 选择棋子失败 " + move);
+                        // 如果选择失败，打印错误信息，停止动画，并恢复UI
+                        System.err.println("AI 动画错误: 无法选择棋子 " + move.getBlockId() + " 于 (" + move.getFromX() + "," + move.getFromY() + ")。动画中止。"); //
                         animationTimer.stop();
-                        finishAISession();
-                        JOptionPane.showMessageDialog(GameFrame.this, "AI演示时选择棋子失败。", "AI演示错误", JOptionPane.ERROR_MESSAGE);
-                        return;
+                        finishAISession(); // 调用完成动画的清理方法
+                        JOptionPane.showMessageDialog(GameFrame.this, "AI演示时选择棋子失败，动画中止。", "AI演示错误", JOptionPane.ERROR_MESSAGE);
+                        return; // 结束 actionPerformed
                     }
 
-                    Direction moveDirection = determineDirection(move.getFromX(), move.getFromY(), move.getToX(), move.getToY());
+                    // 步骤B: 从 MoveRecord 的起始和目标坐标推断出移动方向 (Direction)
+                    Direction moveDirection = determineDirection(move.getFromX(), move.getFromY(), move.getToX(), move.getToY()); //
+
+                    // 验证是否成功确定了方向
                     if (moveDirection == null) {
-                        System.err.println("AI 动画错误: 无法确定方向 " + move);
+                        System.err.println("AI 动画错误: 无法确定移动方向对于 " + move + "。动画中止。");
                         animationTimer.stop();
-                        finishAISession();
-                        JOptionPane.showMessageDialog(GameFrame.this, "AI演示时无法确定移动方向。", "AI演示错误", JOptionPane.ERROR_MESSAGE);
-                        return;
+                        finishAISession(); // 调用完成动画的清理方法
+                        JOptionPane.showMessageDialog(GameFrame.this, "AI演示时无法确定移动方向，动画中止。", "AI演示错误", JOptionPane.ERROR_MESSAGE);
+                        return; // 结束 actionPerformed
                     }
 
+                    // 步骤C: 执行棋子移动
+                    // 调用 GameLogic 的方法来移动当前选中的棋子 (selectedBlock)
                     boolean moved = gameLogic.moveSelectedBlock(moveDirection); //
+
                     if (moved) {
+                        // 如果移动成功，刷新游戏界面 (包括棋盘和状态栏)
                         refreshGameView(); //
                     } else {
-                        System.err.println("AI 动画错误: 移动执行失败 " + move);
+                        // 理论上，AI找到的路径中的每一步都应该是合法的，所以这里不应该执行到
+                        // 但作为防御性编程，如果发生错误，则停止动画并报告
+                        System.err.println("AI 动画错误: AI的合法移动未能成功执行: " + move + " 方向: " + moveDirection + "。动画中止。");
                         animationTimer.stop();
-                        finishAISession();
-                        JOptionPane.showMessageDialog(GameFrame.this, "AI演示的某一步未能执行。", "AI演示错误", JOptionPane.ERROR_MESSAGE);
-                        return;
+                        finishAISession(); // 调用完成动画的清理方法
+                        JOptionPane.showMessageDialog(GameFrame.this, "AI演示的某一步未能执行，动画中止。", "AI演示错误", JOptionPane.ERROR_MESSAGE);
+                        return; // 结束 actionPerformed
                     }
+
+                    // 准备播放下一步动画
                     currentMoveIndex++;
                 } else {
-                    animationTimer.stop();
-                    finishAISession();
+                    // 所有动画步骤都已播放完毕
+                    animationTimer.stop();      // 停止动画计时器
+                    finishAISession();          // 清理并恢复UI状态
                     System.out.println("AI 动画: 演示完成。");
-                    checkAndShowWinDialog(); //
+                    checkAndShowWinDialog();    // 检查并显示胜利对话框（因为所有AI步骤已完成，此时应为胜利状态）
                 }
             }
         });
-        animationTimer.start();
+        animationTimer.start(); // 启动动画计时器，开始播放第一步动画 (在第一个 'delay' 之后)
     }
+    //这个方法是实现了每0.5秒按照ai得到的答案完成一步向着答案的移动
 
-    // 新增方法：统一处理AI会话结束（无论成功、失败、中断或动画完成）
+
     private void finishAISession() {
+        // 重新启用控制面板上的所有按钮
         controlPanel.setAllButtonsEnabled(true);
+        // 恢复 GameFrame 窗口的键盘焦点能力
         this.setFocusable(true);
+        // 主动请求焦点，以便窗口可以再次接收键盘输入
         this.requestFocusInWindow(); //
+        // 清除 AI 正在运行的标记
         isAISolving = false;
 
-        // 仅当游戏未胜利时才重启计时器
+        // 只有当游戏尚未胜利时，才需要考虑重启计时器
         if (!gameLogic.getGameState().isGameWon()) { //
+            // 如果游戏主计时器存在且未运行，则启动它
             if (gameTimer != null && !gameTimer.isRunning()) { //
                 gameTimer.start(); //
             }
+            // 如果自动保存计时器存在且未运行，则启动它
             if (autoSaveTimer != null && !autoSaveTimer.isRunning()) { //
                 autoSaveTimer.start(); //
             }
         }
     }
+    //一个辅助方法，用来完成ai功能实现之后的UI的恢复
 
 
-    // 新增方法：根据坐标确定方向
     private Direction determineDirection(int fromX, int fromY, int toX, int toY) {
+        // 计算X和Y方向上的位移量
         int dx = toX - fromX;
         int dy = toY - fromY;
-        // AI通常生成单位移动
+
+        // 判断是否为向上单步移动
         if (dx == 0 && dy == -1) return Direction.UP;
+        // 判断是否为向下单步移动
         if (dx == 0 && dy == 1) return Direction.DOWN;
+        // 判断是否为向左单步移动
         if (dx == -1 && dy == 0) return Direction.LEFT;
+        // 判断是否为向右单步移动
         if (dx == 1 && dy == 0) return Direction.RIGHT;
-        // 如果AI可能生成多格移动（虽然BFS通常不会直接这么做，除非canMove支持）
-        if (dx == 0 && dy < -1) return Direction.UP;
-        if (dx == 0 && dy > 1) return Direction.DOWN;
-        if (dx < -1 && dy == 0) return Direction.LEFT;
-        if (dx > 1 && dy == 0) return Direction.RIGHT;
+
+        // AI生成的MoveRecord理论上应该是单步移动。
+        // 但为了代码的健壮性，可以考虑处理或明确不支持多格移动的直接转换。
+        // 以下是为AI可能产生的多格直线移动添加的简单判断（如果一步跨越多格）
+        if (dx == 0 && dy < -1) return Direction.UP;    // 多格向上 (方向仍是UP)
+        if (dx == 0 && dy > 1)  return Direction.DOWN;  // 多格向下 (方向仍是DOWN)
+        if (dx < -1 && dy == 0) return Direction.LEFT;  // 多格向左 (方向仍是LEFT)
+        if (dx > 1 && dy == 0)  return Direction.RIGHT; // 多格向右 (方向仍是RIGHT)
+
+        // 如果不是以上情况（例如斜向移动，或dx,dy都为0），则无法确定为单一方向
         return null;
     }
 
