@@ -106,14 +106,13 @@ public class GameFrame extends JFrame {
         autoSaveTimer.start();
 
         // 添加键盘监听器
-        setupKeyboardControls();
-
-        pack();
+        setupKeyboardControls();        pack();
         //一个非常好用的方法，它能够让内容自动调整窗口大小
         //这个方法的使用一般是在加完组件之后，setVisible之前
         setLocationRelativeTo(null); // 窗口居中显示
         setResizable(true);
         //使游戏窗口大小可调，如果后期不方便可以设为false
+        
         setVisible(true);
 
         updateStatus();
@@ -126,7 +125,7 @@ public class GameFrame extends JFrame {
         gameTimer.stop();
         //点击×的时候会实现自动保存功能的停止
 
-        // 使用 JOptionPane 显示一个确认对话框，包含“是”、“否”、“取消”三个选项
+        // 使用 JOptionPane 显示一个确认对话框，包含"是"、"否"、"取消"三个选项
         int response = JOptionPane.showConfirmDialog(
                 this,
                 "Do you want to save the current game before exiting?", // message: 对话框中显示的问题
@@ -441,7 +440,7 @@ public class GameFrame extends JFrame {
 
 
         // 创建 SwingWorker 在后台执行 AI 计算
-        // 补充知识点：SwingWorker 就是为了解决这个“后台执行耗时任务，并在完成后安全更新UI”的矛盾而设计的。
+        // 补充知识点：SwingWorker 就是为了解决这个"后台执行耗时任务，并在完成后安全更新UI"的矛盾而设计的。
         // SwingWorker<T, V>：
         //   T 是 doInBackground() 方法的返回类型 (我们的是 List<MoveRecord>)
         //   V 是 publish() 方法传递给 process() 方法的数据类型 (我们用 String 来传递进度信息)

@@ -396,4 +396,27 @@ public class GamePanel extends JPanel {
     public void clearImageCache() {
         pieceImageCache.clear();
     }
+    
+    /**
+     * 以下是空实现的鼠标追踪相关方法，保留以确保编译通过
+     */
+    public void setCustomCursor(String imagePath, int hotspotX, int hotspotY) {
+        // 空实现
+    }
+
+    public void restoreDefaultCursor() {
+        // 空实现
+    }
+
+    public void setShowMouseTrack(boolean show) {
+        // 空实现
+    }
+
+    public void setMouseTrackColor(Color color) {
+        // 空实现
+    }
+
+    public void setMouseTrackWidth(float width) {
+        // 空实现
+    }
 }

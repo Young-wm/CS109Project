@@ -1,7 +1,6 @@
 package view.game2;
 
-import controller2.Direction2;
-import controller2.GameLogic2;
+import controller2.*;
 
 import javax.swing.*;
 import java.awt.*;
@@ -98,19 +97,6 @@ public class GameFrame2 extends JFrame {
         setLocationRelativeTo(null); // 窗口居中显示
         setResizable(true);
         //使游戏窗口大小可调，如果后期不方便可以设为false
-        
-        // 添加窗口大小调整监听器
-        /*this.addComponentListener(new java.awt.event.ComponentAdapter() {
-            @Override
-            public void componentResized(java.awt.event.ComponentEvent evt) {
-                if (gamePanel2 != null) {
-                    // 仅在窗口调整完成时触发一次更新
-                    SwingUtilities.invokeLater(() -> {
-                        gamePanel2.finalizeResize();
-                    });
-                }
-            }
-        });*/
         
         setVisible(true);
 

@@ -97,11 +97,10 @@ public class GameFrame3 extends JFrame {
         setupGameTimer();
 
         // 添加键盘监听器
-        setupKeyboardControls();
-
-        pack();
+        setupKeyboardControls();        pack();
         //一个非常好用的方法，它能够让内容自动调整窗口大小
         //这个方法的使用一般是在加完组件之后，setVisible之前
+        
         setLocationRelativeTo(null); // 窗口居中显示
         setResizable(true);
         //使游戏窗口大小可调，如果后期不方便可以设为false

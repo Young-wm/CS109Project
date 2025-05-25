@@ -396,4 +396,45 @@ public class GamePanel2 extends JPanel {
     public void clearImageCache() {
         pieceImageCache.clear();
     }
+    
+    /**
+     * 设置自定义光标
+     * @param imagePath 图像路径
+     * @param hotspotX 热点X坐标
+     * @param hotspotY 热点Y坐标
+     */
+    public void setCustomCursor(String imagePath, int hotspotX, int hotspotY) {
+        // 空实现
+    }
+    
+    /**
+     * 恢复默认光标
+     */
+    public void restoreDefaultCursor() {
+        // 空实现
+    }
+    
+    /**
+     * 设置是否显示鼠标轨迹
+     * @param show 是否显示
+     */
+    public void setShowMouseTrack(boolean show) {
+        // 空实现
+    }
+    
+    /**
+     * 设置鼠标轨迹颜色
+     * @param color 颜色
+     */
+    public void setMouseTrackColor(Color color) {
+        // 空实现
+    }
+    
+    /**
+     * 设置鼠标轨迹线宽
+     * @param width 线宽
+     */
+    public void setMouseTrackWidth(float width) {
+        // 空实现
+    }
 }

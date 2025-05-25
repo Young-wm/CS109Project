@@ -6,101 +6,493 @@ import view.game.GameFrame;
 import view.game2.GameFrame2;
 import view.game3.GameFrame3;
 import view.frontend.LoginFrame.AuthFrame;
+import view.frontend.controller.HoverButton;
+import view.frontend.TextAnimator;
+import view.audio.AudioManager;
+import view.frontend.resourses.ResourceManager;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
+import java.util.ArrayList;
+import java.util.List;
+import java.io.File;
 
-public class LevelSelectionFrame extends JFrame {
-    private int selectedLevel = -1;
+public class LevelSelectionFrame extends JFrame implements ComponentListener {
+    private int selectedLevel = 1; // 默认选中第一关
     private JPanel levelDetailPanel;
     private JLabel levelDescriptionLabel;
+    private TextAnimator textAnimator;
+    private Image backgroundImage;
+    
+    // 轮盘式选关界面组件
+    private JPanel carouselPanel;
+    private List<JPanel> levelPanels = new ArrayList<>();
+    private int totalLevels;
+    
+    // 轮盘参数
+    private static final int MAIN_PANEL_WIDTH = 400;
+    private static final int MAIN_PANEL_HEIGHT = 300;
+    private static final int SIDE_PANEL_WIDTH = 200;
+    private static final int SIDE_PANEL_HEIGHT = 200;
+    private static final float SIDE_PANEL_ALPHA = 0.6f; // 侧面板透明度
     
     public LevelSelectionFrame() {
-        setTitle("选择关卡");
-        setSize(600, 500);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLocationRelativeTo(null);
-        setLayout(new BorderLayout());
+        try {
+            setTitle("选择关卡");
+            setSize(800, 600);
+            setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            setLocationRelativeTo(null);
+            setLayout(new BorderLayout());
+            addComponentListener(this); // Add component listener
+            
+            // 加载背景图片
+            try {
+                backgroundImage = ResourceManager.loadImage("images/level_selection_background.jpg");
+                if (backgroundImage == null) {
+                    System.err.println("警告: 无法加载关卡选择背景图片，将使用默认背景");
+                }
+            } catch (Exception e) {
+                System.err.println("加载背景图片时出错");
+                e.printStackTrace();
+            }
+            
+            // 初始化音频
+            initAudio();
 
-        JLabel titleLabel = new JLabel("请选择关卡", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("微软雅黑", Font.BOLD, 22));
-        add(titleLabel, BorderLayout.NORTH);
-
-        // 创建左侧关卡选择面板
-        int levelCount = Logic.getNumberOfLevels();
-        JPanel levelPanel = new JPanel(new GridLayout(0, 2, 10, 10));
-        levelPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        
-        for (int i = 1; i <= levelCount; i++) {
-            JButton levelButton = new JButton("关卡 " + i);
-            int levelNum = i;
-            levelButton.addActionListener(e -> {
-                selectedLevel = levelNum;
-                updateLevelDetailPanel(levelNum);
+            JLabel titleLabel = new JLabel("请选择关卡", SwingConstants.CENTER);
+            titleLabel.setFont(new Font("微软雅黑", Font.BOLD, 24));
+            titleLabel.setForeground(Color.BLACK);
+            add(titleLabel, BorderLayout.NORTH);
+            
+            // 获取关卡数量，确保至少有一个关卡
+            try {
+                totalLevels = Logic.getNumberOfLevels();
+                if (totalLevels <= 0) {
+                    System.err.println("警告: 获取关卡数量失败，设置为默认值3");
+                    totalLevels = 3;
+                }
+            } catch (Exception e) {
+                System.err.println("获取关卡数量失败，设置为默认值3");
+                e.printStackTrace();
+                totalLevels = 3;
+            }
+            
+            // 创建关卡详情面板（先创建这个，因为轮盘面板会引用它）
+            createLevelDetailPanel();
+            add(levelDetailPanel, BorderLayout.SOUTH);
+            
+            // 创建轮盘式选关面板
+            createCarouselPanel();
+            add(carouselPanel, BorderLayout.CENTER);
+            
+            // 更新关卡详情
+            updateLevelDetailPanel(selectedLevel);
+            
+            // 播放背景音乐
+            try {
+                AudioManager.getInstance().playDefaultBGM();
+            } catch (Exception e) {
+                System.err.println("播放背景音乐失败");
+                e.printStackTrace();
+            }
+        } catch (Exception e) {
+            System.err.println("初始化关卡选择界面失败");
+            e.printStackTrace();
+            // 创建一个简单的错误界面
+            getContentPane().removeAll();
+            setLayout(new BorderLayout());
+            JPanel errorPanel = new JPanel(new BorderLayout());
+            errorPanel.setBackground(new Color(30, 30, 30));
+            JLabel errorLabel = new JLabel("加载关卡选择界面失败，请检查资源文件", SwingConstants.CENTER);
+            errorLabel.setForeground(Color.WHITE);
+            errorLabel.setFont(new Font("微软雅黑", Font.BOLD, 18));
+            errorPanel.add(errorLabel, BorderLayout.CENTER);
+            
+            JButton returnButton = new JButton("返回主菜单");
+            returnButton.addActionListener(e2 -> {
+                dispose();
+                try {
+                    new AuthFrame().setVisible(true);
+                } catch (Exception ex) {
+                    System.exit(0); // 如果连返回都失败，直接退出程序
+                }
             });
-            levelPanel.add(levelButton);
+            JPanel buttonPanel = new JPanel();
+            buttonPanel.setOpaque(false);
+            buttonPanel.add(returnButton);
+            errorPanel.add(buttonPanel, BorderLayout.SOUTH);
+            
+            add(errorPanel);
+        }
+    }
+    
+    /**
+     * 初始化音频设置
+     */
+    private void initAudio() {
+        try {
+            AudioManager audioManager = AudioManager.getInstance();
+            
+            // 如果没有设置默认音频路径，则设置
+            if (audioManager.getDefaultBgmPath() == null) {
+                // 检查音频文件是否存在
+                File bgmFile = new File("src/view/audio/resources/bgm.wav");
+                File clickFile = new File("src/view/audio/resources/button_click.wav");
+                File hoverFile = new File("src/view/audio/resources/button_hover.wav");
+                File pieceMoveFile = new File("src/view/audio/resources/piece_move.wav");
+                
+                // 如果任何一个文件不存在，给出警告但不崩溃
+                if (!bgmFile.exists() || !clickFile.exists() || !hoverFile.exists() || !pieceMoveFile.exists()) {
+                    System.err.println("警告: 部分音频文件不存在，音频功能可能不完整");
+                }
+                
+                audioManager.setDefaultBgmPath("src/view/audio/resources/bgm.wav");
+                audioManager.setDefaultButtonClickPath("src/view/audio/resources/button_click.wav");
+                audioManager.setDefaultButtonHoverPath("src/view/audio/resources/button_hover.wav");
+                audioManager.setDefaultPieceMovePath("src/view/audio/resources/piece_move.wav");
+            }
+            
+            // 尝试播放背景音乐，如果失败则禁用音频
+            try {
+                audioManager.playDefaultBGM();
+            } catch (Exception e) {
+                System.err.println("播放背景音乐失败，音频功能将被禁用");
+                e.printStackTrace();
+                audioManager.setAudioEnabled(false);
+            }
+        } catch (Exception e) {
+            System.err.println("初始化音频系统失败");
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * 创建轮盘式选关面板
+     */
+    private void createCarouselPanel() {
+        try {
+            carouselPanel = new JPanel(null) { // 使用null布局以便精确定位
+                @Override
+                protected void paintComponent(Graphics g) {
+                    super.paintComponent(g);
+                    // 绘制背景图片
+                    if (backgroundImage != null) {
+                        g.drawImage(backgroundImage, 0, 0, getWidth(), getHeight(), this);
+                    } else {
+                        // 如果没有背景图片，绘制渐变背景
+                        Graphics2D g2d = (Graphics2D) g;
+                        GradientPaint gradient = new GradientPaint(
+                                0, 0, new Color(0, 30, 60),
+                                0, getHeight(), new Color(0, 10, 30));
+                        g2d.setPaint(gradient);
+                        g2d.fillRect(0, 0, getWidth(), getHeight());
+                    }
+                }
+            };
+            
+            // 确保totalLevels至少为1
+            if (totalLevels <= 0) {
+                System.err.println("警告: 关卡数量为0或负数，设置为默认值1");
+                totalLevels = 1;
+            }
+            
+            // 创建各个关卡面板
+            for (int i = 1; i <= totalLevels; i++) {
+                JPanel levelPanel = createLevelPanel(i);
+                levelPanels.add(levelPanel);
+                carouselPanel.add(levelPanel);
+            }
+            
+            // 创建左右切换按钮
+            HoverButton prevButton = new HoverButton("<");
+            prevButton.setFont(new Font("Arial", Font.BOLD, 24));
+            prevButton.setBounds(20, carouselPanel.getHeight() / 2 - 25, 50, 50);
+            prevButton.addActionListener(e -> {
+                try {
+                    AudioManager.getInstance().playDefaultButtonClickSound();
+                } catch (Exception ex) {
+                    System.err.println("播放按钮点击音效失败");
+                }
+                rotateCarousel(false); // 向左旋转
+            });
+            
+            HoverButton nextButton = new HoverButton(">");
+            nextButton.setFont(new Font("Arial", Font.BOLD, 24));
+            nextButton.setBounds(carouselPanel.getWidth() - 70, carouselPanel.getHeight() / 2 - 25, 50, 50);
+            nextButton.addActionListener(e -> {
+                try {
+                    AudioManager.getInstance().playDefaultButtonClickSound();
+                } catch (Exception ex) {
+                    System.err.println("播放按钮点击音效失败");
+                }
+                rotateCarousel(true); // 向右旋转
+            });
+            
+            carouselPanel.add(prevButton);
+            carouselPanel.add(nextButton);
+            
+            // 初始化轮盘位置
+            updateCarouselLayout();
+        } catch (Exception e) {
+            System.err.println("创建轮盘面板失败");
+            e.printStackTrace();
+            
+            // 创建一个简单的备用面板
+            carouselPanel = new JPanel(new BorderLayout());
+            carouselPanel.setBackground(new Color(0, 30, 60));
+            JLabel errorLabel = new JLabel("无法加载关卡选择界面，请检查资源文件", SwingConstants.CENTER);
+            errorLabel.setForeground(Color.WHITE);
+            errorLabel.setFont(new Font("微软雅黑", Font.BOLD, 18));
+            carouselPanel.add(errorLabel, BorderLayout.CENTER);
+        }
+    }
+    
+    /**
+     * 创建单个关卡面板
+     * @param levelNum 关卡编号
+     * @return 关卡面板
+     */
+    private JPanel createLevelPanel(int levelNum) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setOpaque(false);
+        
+        // 关卡标题
+        JLabel titleLabel = new JLabel("关卡 " + levelNum, SwingConstants.CENTER);
+        titleLabel.setFont(new Font("微软雅黑", Font.BOLD, 20));
+        titleLabel.setForeground(Color.WHITE);
+        panel.add(titleLabel, BorderLayout.NORTH);
+        
+        // 关卡图片（可以根据关卡编号加载不同图片）
+        String imagePath = "images/level" + levelNum + ".jpg";
+        Image levelImage = null;
+        
+        try {
+            levelImage = ResourceManager.loadImage(imagePath);
+        } catch (Exception e) {
+            System.err.println("加载关卡图片失败: " + imagePath);
+            e.printStackTrace();
         }
         
-        // 创建右侧关卡详情面板
-        levelDetailPanel = new JPanel(new BorderLayout());
-        levelDetailPanel.setBorder(BorderFactory.createTitledBorder("关卡详情"));
+        JLabel imageLabel;
+        if (levelImage != null) {
+            imageLabel = new JLabel(new ImageIcon(levelImage));
+        } else {
+            // 如果没有图片，使用纯色面板
+            JPanel colorPanel = new JPanel();
+            colorPanel.setBackground(new Color(30, 30, 30 + levelNum * 20));
+            colorPanel.setPreferredSize(new Dimension(MAIN_PANEL_WIDTH - 50, MAIN_PANEL_HEIGHT - 100));
+            imageLabel = new JLabel();
+            imageLabel.add(colorPanel);
+        }
+        panel.add(imageLabel, BorderLayout.CENTER);
         
-        levelDescriptionLabel = new JLabel("请选择一个关卡查看详情", SwingConstants.CENTER);
+        return panel;
+    }
+    
+    /**
+     * 更新轮盘布局
+     */
+    private void updateCarouselLayout() {
+        try {
+            if (carouselPanel == null || levelPanels == null || levelPanels.isEmpty()) {
+                System.err.println("警告: 无法更新轮盘布局，组件未初始化");
+                return;
+            }
+            
+            int centerX = carouselPanel.getWidth() / 2;
+            int centerY = carouselPanel.getHeight() / 2;
+            
+            // 确保selectedLevel在有效范围内
+            if (selectedLevel < 1 || selectedLevel > totalLevels) {
+                selectedLevel = 1;
+            }
+            
+            // 确定当前选中关卡的索引
+            int currentIndex = selectedLevel - 1;
+            
+            // 计算前一个和后一个关卡的索引
+            int prevIndex = (currentIndex - 1 + totalLevels) % totalLevels;
+            int nextIndex = (currentIndex + 1) % totalLevels;
+            
+            // 重新布局所有关卡面板
+            for (int i = 0; i < levelPanels.size(); i++) {
+                JPanel panel = levelPanels.get(i);
+                
+                if (i == currentIndex) {
+                    // 当前选中关卡居中显示
+                    panel.setBounds(
+                        centerX - MAIN_PANEL_WIDTH / 2,
+                        centerY - MAIN_PANEL_HEIGHT / 2,
+                        MAIN_PANEL_WIDTH,
+                        MAIN_PANEL_HEIGHT
+                    );
+                    panel.setVisible(true);
+                } else if (i == prevIndex) {
+                    // 前一个关卡显示在左侧
+                    panel.setBounds(
+                        centerX - MAIN_PANEL_WIDTH / 2 - SIDE_PANEL_WIDTH,
+                        centerY - SIDE_PANEL_HEIGHT / 2,
+                        SIDE_PANEL_WIDTH,
+                        SIDE_PANEL_HEIGHT
+                    );
+                    panel.setVisible(true);
+                    // 设置半透明效果
+                    setComponentAlpha(panel, SIDE_PANEL_ALPHA);
+                } else if (i == nextIndex) {
+                    // 后一个关卡显示在右侧
+                    panel.setBounds(
+                        centerX + MAIN_PANEL_WIDTH / 2,
+                        centerY - SIDE_PANEL_HEIGHT / 2,
+                        SIDE_PANEL_WIDTH,
+                        SIDE_PANEL_HEIGHT
+                    );
+                    panel.setVisible(true);
+                    // 设置半透明效果
+                    setComponentAlpha(panel, SIDE_PANEL_ALPHA);
+                } else {
+                    // 其他关卡隐藏
+                    panel.setVisible(false);
+                }
+            }
+            
+            // 更新关卡详情
+            updateLevelDetailPanel(selectedLevel);
+            
+            // 重绘界面
+            carouselPanel.revalidate();
+            carouselPanel.repaint();
+        } catch (Exception e) {
+            System.err.println("更新轮盘布局失败");
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * 设置组件透明度
+     * @param component 组件
+     * @param alpha 透明度 (0.0-1.0)
+     */
+    private void setComponentAlpha(JComponent component, float alpha) {
+        component.setOpaque(false);
+        for (Component child : component.getComponents()) {
+            if (child instanceof JComponent) {
+                ((JComponent) child).setOpaque(false);
+            }
+        }
+    }
+    
+    /**
+     * 旋转轮盘
+     * @param clockwise 是否顺时针旋转
+     */
+    private void rotateCarousel(boolean clockwise) {
+        if (clockwise) {
+            selectedLevel = (selectedLevel % totalLevels) + 1;
+        } else {
+            selectedLevel = (selectedLevel - 1 == 0) ? totalLevels : selectedLevel - 1;
+        }
+        
+        // 更新轮盘布局
+        updateCarouselLayout();
+    }
+    
+    /**
+     * 创建关卡详情面板
+     */
+    private void createLevelDetailPanel() {
+        levelDetailPanel = new JPanel(new BorderLayout());
+        levelDetailPanel.setBorder(BorderFactory.createEmptyBorder(10, 20, 20, 20));
+        levelDetailPanel.setOpaque(false);
+        
+        levelDescriptionLabel = new JLabel("", SwingConstants.CENTER);
         levelDescriptionLabel.setFont(new Font("微软雅黑", Font.PLAIN, 16));
+        levelDescriptionLabel.setForeground(Color.BLACK);
         levelDetailPanel.add(levelDescriptionLabel, BorderLayout.CENTER);
         
-        JButton confirmButton = new JButton("确认关卡");
-        confirmButton.setEnabled(false);
+        // 初始化文本动画器
+        try {
+            textAnimator = new TextAnimator(levelDescriptionLabel, 20); // 每秒输出20个字符
+        } catch (Exception e) {
+            System.err.println("初始化文本动画器失败");
+            e.printStackTrace();
+            // 如果文本动画器初始化失败，创建一个空实现
+            textAnimator = new TextAnimator(levelDescriptionLabel, 20) {
+                @Override
+                public void animateText(String text) {
+                    // 简单实现：直接设置文本，不做动画
+                    if (levelDescriptionLabel != null) {
+                        levelDescriptionLabel.setText(text);
+                    }
+                }
+            };
+        }
+        
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        buttonPanel.setOpaque(false);
+        
+        HoverButton confirmButton = new HoverButton("开始游戏");
         confirmButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (selectedLevel > 0) {
-                    Logic.loadLevel(selectedLevel);
-                    dispose();
-                    
-                    // 根据不同关卡连接到不同模块
-                    switch (selectedLevel) {
-                        case 1:
-                            // 关卡1连接到control2, game2
-                            new GameFrame2().setVisible(true);
-                            break;
-                        case 2:
-                            // 关卡2连接到control, game
-                            new GameFrame().setVisible(true);
-                            break;
-                        case 3:
-                            // 关卡3连接到control3, game3
-                            new GameFrame3().setVisible(true);
-                            break;
-                        default:
-                            // 默认使用普通Frame
-                            new Frame().setVisible(true);
-                            break;
+                try {
+                    if (selectedLevel > 0) {
+                        Logic.loadLevel(selectedLevel);
+                        dispose();
+                        
+                        // 根据不同关卡连接到不同模块
+                        switch (selectedLevel) {
+                            case 1:
+                                // 关卡1连接到control2, game2
+                                new GameFrame2().setVisible(true);
+                                break;
+                            case 2:
+                                // 关卡2连接到control, game
+                                new GameFrame().setVisible(true);
+                                break;
+                            case 3:
+                                // 关卡3连接到control3, game3
+                                new GameFrame3().setVisible(true);
+                                break;
+                            default:
+                                // 默认使用普通Frame
+                                new Frame().setVisible(true);
+                                break;
+                        }
                     }
+                } catch (Exception ex) {
+                    System.err.println("启动游戏关卡失败: " + ex.getMessage());
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(LevelSelectionFrame.this, 
+                        "启动游戏关卡失败。\n错误信息: " + ex.getMessage(), 
+                        "错误", JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
-        
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         buttonPanel.add(confirmButton);
-        levelDetailPanel.add(buttonPanel, BorderLayout.SOUTH);
         
-        // 创建分割面板
-        JSplitPane splitPane = new JSplitPane(
-                JSplitPane.HORIZONTAL_SPLIT,
-                new JScrollPane(levelPanel),
-                levelDetailPanel);
-        splitPane.setDividerLocation(250);
-        add(splitPane, BorderLayout.CENTER);
-
-        JButton backButton = new JButton("返回主菜单");
+        HoverButton backButton = new HoverButton("返回主菜单");
         backButton.addActionListener(e -> {
-            dispose();
-            new AuthFrame().setVisible(true);
+            try {
+                dispose();
+                new AuthFrame().setVisible(true);
+            } catch (Exception ex) {
+                System.err.println("返回主菜单失败: " + ex.getMessage());
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(LevelSelectionFrame.this, 
+                    "返回主菜单失败。\n错误信息: " + ex.getMessage(), 
+                    "错误", JOptionPane.ERROR_MESSAGE);
+                // 尝试强制关闭当前窗口
+                dispose();
+            }
         });
-        add(backButton, BorderLayout.SOUTH);
+        buttonPanel.add(backButton);
+        
+        levelDetailPanel.add(buttonPanel, BorderLayout.SOUTH);
     }
     
     /**
@@ -108,42 +500,46 @@ public class LevelSelectionFrame extends JFrame {
      * @param levelNum 关卡编号
      */
     private void updateLevelDetailPanel(int levelNum) {
-        // 更新关卡描述
-        String description = "<html><body>";
-        description += "<h2>关卡 " + levelNum + " 详情</h2>";
-        description += "<p>这是关卡" + levelNum + "的详细说明，待补充。</p>";
-        
+        if (textAnimator != null && levelDescriptionLabel != null) {
+            String description = getDescriptionForLevel(levelNum);
+            textAnimator.animateText(description);
+        }
+    }
+    
+    /**
+     * 获取关卡描述
+     */
+    private String getDescriptionForLevel(int levelNum) {
         switch (levelNum) {
             case 1:
-                description += "<p>难度：Easy</p>";
-                description += "<p>模块：control2, game2</p>（调试用）";
-                break;
+                return "关卡1：基础挑战 - 学习游戏的基本操作";
             case 2:
-                description += "<p>难度：Hard</p>";
-                description += "<p>模块：control, game</p>（调试用）";
-                break;
+                return "关卡2：进阶挑战 - 更复杂的移动组合";
             case 3:
-                description += "<p>难度：Limit Time</p>";
-                description += "<p>模块：control3, game3</p>（调试用）";
-                break;
+                return "关卡3：高级挑战 - 需要策略思考";
+            default:
+                return "关卡" + levelNum + "：挑战等待着你！";
         }
-        
-        description += "</body></html>";
-        levelDescriptionLabel.setText(description);
-        
-        // 启用确认按钮
-        Component buttonComponent = levelDetailPanel.getComponent(1);
-        if (buttonComponent instanceof Container) {
-            Container buttonContainer = (Container) buttonComponent;
-            for (Component comp : buttonContainer.getComponents()) {
-                if (comp instanceof JButton) {
-                    comp.setEnabled(true);
-                }
-            }
-        }
-        
-        // 刷新界面
-        levelDetailPanel.revalidate();
-        levelDetailPanel.repaint();
+    }
+    
+    // 实现ComponentListener接口的方法
+    @Override
+    public void componentResized(ComponentEvent e) {
+        updateCarouselLayout();
+    }
+
+    @Override
+    public void componentMoved(ComponentEvent e) {
+        // 窗口移动时无需特殊处理
+    }
+
+    @Override
+    public void componentShown(ComponentEvent e) {
+        // 窗口显示时无需特殊处理
+    }
+
+    @Override
+    public void componentHidden(ComponentEvent e) {
+        // 窗口隐藏时无需特殊处理
     }
 }
