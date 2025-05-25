@@ -44,7 +44,7 @@ public class Frame extends JFrame {
             JPanel errorPanel = new JPanel(new BorderLayout());
             errorPanel.setBackground(new Color(30, 30, 30));
             JLabel errorLabel = new JLabel("加载游戏界面失败，请检查资源文件", SwingConstants.CENTER);
-            errorLabel.setForeground(Color.WHITE);
+            errorLabel.setForeground(Color.BLACK);
             errorLabel.setFont(new Font("微软雅黑", Font.BOLD, 18));
             errorPanel.add(errorLabel, BorderLayout.CENTER);
             
@@ -141,7 +141,9 @@ public class Frame extends JFrame {
             // 临时显示内容,现在没用了
             JLabel gameContentLabel = new JLabel("游戏内容区域 - 关卡内容将在这里显示", SwingConstants.CENTER);
             gameContentLabel.setFont(new Font("微软雅黑", Font.PLAIN, 18));
-            gameContentLabel.setForeground(Color.WHITE);
+            gameContentLabel.setForeground(Color.BLACK);
+            gameContentLabel.setOpaque(true);
+            gameContentLabel.setBackground(new Color(255, 255, 255, 180)); // 半透明白色背景
             gamePanel.add(gameContentLabel, BorderLayout.CENTER);
             
             add(gamePanel, BorderLayout.CENTER);

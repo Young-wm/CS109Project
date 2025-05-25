@@ -100,6 +100,15 @@ public class VictoryPanel extends JPanel {
         JLabel label = new JLabel(text);
         label.setFont(new Font("微软雅黑", Font.BOLD, fontSize));
         label.setForeground(Color.WHITE); // 白色文字，便于在图片背景上显示
+        // 修改为黑色文本，并添加文本阴影效果以确保在任何背景上都清晰可见
+        label.setForeground(Color.BLACK);
+        label.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createEmptyBorder(2, 2, 2, 2),
+            BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Color.WHITE, 1),
+                BorderFactory.createEmptyBorder(5, 10, 5, 10)
+            )
+        ));
         label.setAlignmentX(Component.CENTER_ALIGNMENT);
         return label;
     }

@@ -78,7 +78,7 @@ public class AuthFrame extends JFrame {
                 "并且没有存档与读档功能" +
                 "</div></html>", SwingConstants.CENTER);
         guestWelcomeLabel.setFont(new Font("Serif", Font.PLAIN, 18));
-        guestWelcomeLabel.setForeground(Color.BLACK); // 修改为黑色，提高可视性
+        guestWelcomeLabel.setForeground(Color.WHITE); // 设置文本颜色为白色，以便在深色背景上更清晰
         guestModePanel.add(guestWelcomeLabel, BorderLayout.CENTER);
 
         JPanel guestButtonsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
@@ -107,7 +107,7 @@ public class AuthFrame extends JFrame {
         
         this.mainAppWelcomeLabel = new JLabel("", SwingConstants.CENTER);
         this.mainAppWelcomeLabel.setFont(new Font("Serif", Font.PLAIN, 18));
-        this.mainAppWelcomeLabel.setForeground(Color.BLACK); // 修改为黑色，提高可视性
+        this.mainAppWelcomeLabel.setForeground(Color.WHITE); // 设置文本颜色为白色，以便在深色背景上更清晰
         this.mainAppPanel.add(this.mainAppWelcomeLabel, BorderLayout.CENTER);
         
         // 初始化文本动画器
@@ -141,7 +141,6 @@ public class AuthFrame extends JFrame {
 
         add(mainPanel);
         showLoginPanel(); // Show login panel by default
-        
         setVisible(true);
     }
     
@@ -196,8 +195,8 @@ public class AuthFrame extends JFrame {
                 // 播放悬停音效
                 AudioManager.getInstance().playDefaultButtonHoverSound();
                 
-                // 改变按钮外观 - 使用更明显的颜色变化
-                button.setBackground(new Color(70, 130, 180)); // 钢蓝色，更明显的悬停颜色
+                // 改变按钮外观
+                button.setBackground(originalBackground.darker());
                 button.setForeground(Color.WHITE);
                 button.setFont(new Font(originalFont.getName(), Font.BOLD, originalFont.getSize()));
                 button.setBorderPainted(true);

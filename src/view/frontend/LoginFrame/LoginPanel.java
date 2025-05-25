@@ -4,6 +4,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import view.frontend.controller.HoverButton;
 
 public class LoginPanel extends JPanel {
     private AuthFrame authFrame;
@@ -11,9 +12,9 @@ public class LoginPanel extends JPanel {
 
     private JTextField usernameField;
     private JPasswordField passwordField;
-    private JButton loginButton;
-    private JButton switchToRegisterButton;
-    private JButton guestModeButton;
+    private HoverButton loginButton;
+    private HoverButton switchToRegisterButton;
+    private HoverButton guestModeButton;
 
     public LoginPanel(AuthFrame frame, UserManager manager) {
         this.authFrame = frame;
@@ -58,7 +59,7 @@ public class LoginPanel extends JPanel {
         add(passwordField, gbc);
 
         // Login Button
-        loginButton = new JButton("登录");
+        loginButton = new HoverButton("登录");
         gbc.gridx = 0;
         gbc.gridy = 3;
         gbc.gridwidth = 2;
@@ -66,13 +67,13 @@ public class LoginPanel extends JPanel {
         add(loginButton, gbc);
 
         // Switch to Register Button
-        switchToRegisterButton = new JButton("没有账户？点击注册");
+        switchToRegisterButton = new HoverButton("没有账户？点击注册");
         gbc.gridx = 0;
         gbc.gridy = 4;
         add(switchToRegisterButton, gbc);
 
         // Guest Mode Button
-        guestModeButton = new JButton("游客模式");
+        guestModeButton = new HoverButton("游客模式");
         gbc.gridx = 0;
         gbc.gridy = 5;
         add(guestModeButton, gbc);

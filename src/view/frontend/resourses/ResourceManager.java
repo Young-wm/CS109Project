@@ -282,4 +282,123 @@ public class ResourceManager {
     public static boolean isResourceLoadingEnabled() {
         return resourceLoadingEnabled;
     }
-} 
+    
+    /**
+     * 创建梯形图像
+     * @param originalImage 原始图像
+     * @param targetWidth 目标宽度
+     * @param targetHeight 目标高度
+     * @param topWidth 顶部宽度比例（0.0-1.0）
+     * @param bottomWidth 底部宽度比例（0.0-1.0）
+     * @return 梯形处理后的图像
+     */
+    public static Image createTrapezoidImage(Image originalImage, int targetWidth, int targetHeight, 
+                                           double topWidth, double bottomWidth) {
+        if (originalImage == null) {
+            return getDefaultImage();
+        }
+        
+        // 确保图片完全加载
+        originalImage = ensureImageLoaded(originalImage);
+        
+        // 创建新的缓冲图像
+        BufferedImage trapezoidImage = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = trapezoidImage.createGraphics();
+        
+        // 启用抗锯齿
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        
+        // 计算顶部和底部的实际宽度
+        int topActualWidth = (int) (targetWidth * topWidth);
+        int bottomActualWidth = (int) (targetWidth * bottomWidth);
+        
+        // 创建梯形裁剪区域
+        int[] xPoints = new int[4];
+        int[] yPoints = new int[4];
+        
+        // 左上角
+        xPoints[0] = (targetWidth - topActualWidth) / 2;
+        yPoints[0] = 0;
+        
+        // 右上角
+        xPoints[1] = (targetWidth + topActualWidth) / 2;
+        yPoints[1] = 0;
+        
+        // 右下角
+        xPoints[2] = (targetWidth + bottomActualWidth) / 2;
+        yPoints[2] = targetHeight;
+        
+        // 左下角
+        xPoints[3] = (targetWidth - bottomActualWidth) / 2;
+        yPoints[3] = targetHeight;
+        
+        Polygon trapezoid = new Polygon(xPoints, yPoints, 4);
+        
+        // 设置裁剪区域
+        g2d.setClip(trapezoid);
+        
+        // 绘制调整大小后的原始图像
+        Image scaledImage = originalImage.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
+        g2d.drawImage(scaledImage, 0, 0, null);
+        
+        g2d.dispose();
+        
+        return trapezoidImage;
+    }
+    
+    /**
+     * 创建带透明度的图像
+     * @param originalImage 原始图像
+     * @param alpha 透明度（0.0-1.0）
+     * @return 带透明度的图像
+     */
+    public static Image createAlphaImage(Image originalImage, float alpha) {
+        if (originalImage == null) {
+            return getDefaultImage();
+        }
+        
+        // 确保图片完全加载
+        originalImage = ensureImageLoaded(originalImage);
+        
+        int width = originalImage.getWidth(null);
+        int height = originalImage.getHeight(null);
+        
+        // 创建新的缓冲图像
+        BufferedImage alphaImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = alphaImage.createGraphics();
+        
+        // 设置透明度
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+        
+        // 绘制原始图像
+        g2d.drawImage(originalImage, 0, 0, null);
+        
+        g2d.dispose();
+        
+        return alphaImage;
+    }
+    
+    /**
+     * 创建梯形且带透明度的图像
+     * @param originalImage 原始图像
+     * @param targetWidth 目标宽度
+     * @param targetHeight 目标高度
+     * @param topWidth 顶部宽度比例（0.0-1.0）
+     * @param bottomWidth 底部宽度比例（0.0-1.0）
+     * @param alpha 透明度（0.0-1.0）
+     * @return 梯形且带透明度的图像
+     */
+    public static Image createTrapezoidAlphaImage(Image originalImage, int targetWidth, int targetHeight,
+                                                double topWidth, double bottomWidth, float alpha) {
+        if (originalImage == null) {
+            return getDefaultImage();
+        }
+        
+        // 首先创建梯形图像
+        Image trapezoidImage = createTrapezoidImage(originalImage, targetWidth, targetHeight, topWidth, bottomWidth);
+        
+        // 然后添加透明度
+        return createAlphaImage(trapezoidImage, alpha);
+    }
+}
