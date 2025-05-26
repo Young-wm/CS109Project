@@ -34,7 +34,7 @@ public class ControlPanel extends JPanel implements ActionListener {
         * WEST (西, 左)、EAST (东, 右) 和 CENTER (中)。
         * 添加组件时需要指定要放入哪个区域，即.add(myButton, BorderLayout.NORTH);。
         * 2.FlowLayout：像文字排版一样，将组件从左到右、从上到下地依次排列。
-        * 如果当前行放不下，它会自动“流”到下一行。
+        * 如果当前行放不下，它会自动"流"到下一行。
         * 3.GridBagLayout：最复杂但是也最自由的排列形式，
         * 由于ControlPanel里面有上面8个JLabel，所以我决定使用这种setLayout
         * 这里简单介绍一下：
@@ -168,14 +168,49 @@ public class ControlPanel extends JPanel implements ActionListener {
     // 这个方法的增加是为了在实现ai功能时，所有按键是禁用的，保证不会干扰ai功能的进行
 
     private void handleMovement(Direction direction) {
-        boolean moved = mainFrame.getGameLogic().moveSelectedBlock(direction);
-        if (moved) {
-            mainFrame.refreshGameView();
-            mainFrame.checkAndShowWinDialog();
+        // 如果动画正在进行，忽略移动操作
+        if (mainFrame.getGamePanel().isAnimating()) {
+            return;
+        }
+        
+        // 获取当前选中的棋子
+        controller.Block selectedBlock = mainFrame.getGameLogic().getSelectedBlock();
+        if (selectedBlock == null) {
+            String message = "No block selected";
+            String title = "Error";
+            JOptionPane.showMessageDialog(mainFrame, message, title, JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        // 检查是否可以移动
+        if (mainFrame.getGameLogic().canMove(selectedBlock, direction.getDx(), direction.getDy())) {
+            // 开始动画
+            mainFrame.getGamePanel().animateBlockMove(selectedBlock, direction);
+            
+            // 设置动画完成后的回调
+            final Direction finalDirection = direction;
+            mainFrame.getGamePanel().setAnimationCompleteCallback(() -> {
+                // 动画完成后执行实际的棋子移动
+                boolean success = mainFrame.getGameLogic().moveSelectedBlock(finalDirection);
+                
+                // 在模型更新后，通知BlockAnimator可以清理已完成的动画状态
+                if (mainFrame.getGamePanel().getBlockAnimator() != null) {
+                    mainFrame.getGamePanel().getBlockAnimator().finalizeAllPendingAnimations();
+                }
+                
+                if (success) {
+                    mainFrame.refreshGameView();
+                    mainFrame.checkAndShowWinDialog();
+                } else {
+                    // 如果移动不成功（理论上在canMove检查后不应发生）
+                    // 也应重绘以确保视图与模型一致。
+                    mainFrame.getGamePanel().repaint();
+                }
+            });
         } else {
-            String message = String.format("Cannot move %swards",direction);
+            String message = String.format("Cannot move %swards", direction);
             String title = "Irremovable";
-            JOptionPane.showMessageDialog(mainFrame,message,title, JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(mainFrame, message, title, JOptionPane.WARNING_MESSAGE);
         }
     }
     //这里写一个方法来帮助上面actionPerformed的书写，别的地方不能用

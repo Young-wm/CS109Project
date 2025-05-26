@@ -182,28 +182,68 @@ public class GameFrame extends JFrame {
         this.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
+                // 如果动画正在进行，忽略键盘输入
+                if (gamePanel.isAnimating()) {
+                    return;
+                }
+                
                 boolean moved = false;
+                Direction moveDirection = null;
+                
                 switch (e.getKeyCode()) {
                     case KeyEvent.VK_UP:
                     case KeyEvent.VK_W:
-                        moved = gameLogic.moveSelectedBlock(controller.Direction.UP);
+                        moveDirection = Direction.UP;
                         break;
                     case KeyEvent.VK_DOWN:
                     case KeyEvent.VK_S:
-                        moved = gameLogic.moveSelectedBlock(controller.Direction.DOWN);
+                        moveDirection = Direction.DOWN;
                         break;
                     case KeyEvent.VK_LEFT:
                     case KeyEvent.VK_A:
-                        moved = gameLogic.moveSelectedBlock(controller.Direction.LEFT);
+                        moveDirection = Direction.LEFT;
                         break;
                     case KeyEvent.VK_RIGHT:
                     case KeyEvent.VK_D:
-                        moved = gameLogic.moveSelectedBlock(controller.Direction.RIGHT);
+                        moveDirection = Direction.RIGHT;
                         break;
                 }
+                
+                if (moveDirection != null) {
+                    final Direction finalMoveDirection = moveDirection;
+                    Block selectedBlock = gameLogic.getSelectedBlock();
+                    if (selectedBlock != null && gameLogic.canMove(selectedBlock, finalMoveDirection.getDx(), finalMoveDirection.getDy())) {
+                        // 开始动画
+                        gamePanel.animateBlockMove(selectedBlock, finalMoveDirection);
+                        
+                        // 设置动画完成后的回调
+                        gamePanel.setAnimationCompleteCallback(() -> {
+                            // 动画完成后执行实际的棋子移动
+                            boolean success = gameLogic.moveSelectedBlock(finalMoveDirection);
+                            
+                            // 在模型更新后，通知BlockAnimator可以清理已完成的动画状态
+                            // 这是关键的修改，确保在模型更新后才清理动画状态
+                            if (gamePanel.getBlockAnimator() != null) {
+                                gamePanel.getBlockAnimator().finalizeAllPendingAnimations();
+                            }
+                            
+                            if (success) {
+                                refreshGameView(); // 这通常会包含 repaint
+                                checkAndShowWinDialog();
+                            } else {
+                                // 如果移动不成功（理论上在canMove检查后不应发生）
+                                // 也应重绘以确保视图与模型一致。
+                                gamePanel.repaint();
+                            }
+                        });
+                        
+                        moved = true;
+                    }
+                }
+                
                 if (moved) {
-                    refreshGameView();
-                    checkAndShowWinDialog();
+                    // 动画已经开始，不需要在这里刷新视图
+                    // 动画完成后会自动刷新
                 }
             }
         });
@@ -265,13 +305,24 @@ public class GameFrame extends JFrame {
 
 
     public void handleUndo() {
-        if (gameLogic.undoLastMove()) {
+        // 如果动画正在进行，忽略撤销操作
+        if (gamePanel.isAnimating()) {
+            return;
+        }
+        
+        boolean undoSuccess = gameLogic.undoLastMove();
+        if (undoSuccess) {
             refreshGameView();
         }
     }
     //每次撤销操作以后需要引用一次这个方法来更新整个JFrame
 
     public void handleReset() {
+        // 如果动画正在进行，取消所有动画
+        if (gamePanel.isAnimating()) {
+            gamePanel.cancelAnimations();
+        }
+        
         gameLogic.resetGame();
         gameTimer.restart();
         if (autoSaveTimer != null) {
@@ -419,6 +470,13 @@ public class GameFrame extends JFrame {
     }
     //顺便写了一个gameLogic的getter以防其它开发的时候要用到GameFrame中的gameLogic
 
+    /**
+     * 获取游戏面板
+     * @return 游戏面板
+     */
+    public GamePanel getGamePanel() {
+        return gamePanel;
+    }
 
     //这里主要使用的是一个SwingWorker在后台处理AI解决棋盘的事件，然后再反馈到UI上
     public void handleAISolve() {
@@ -571,6 +629,11 @@ public class GameFrame extends JFrame {
                     checkAndShowWinDialog();    // 显示胜利对话框
                     return;                     // 结束 actionPerformed
                 }
+                
+                // 如果有棋子动画正在进行，等待它完成
+                if (gamePanel.isAnimating()) {
+                    return;
+                }
 
                 // 检查是否还有动画步骤没有播放
                 if (currentMoveIndex < solutionMoves.size()) {
@@ -605,25 +668,31 @@ public class GameFrame extends JFrame {
                         return; // 结束 actionPerformed
                     }
 
-                    // 步骤C: 执行棋子移动
-                    // 调用 GameLogic 的方法来移动当前选中的棋子 (selectedBlock)
-                    boolean moved = gameLogic.moveSelectedBlock(moveDirection); //
-
-                    if (moved) {
-                        // 如果移动成功，刷新游戏界面 (包括棋盘和状态栏)
-                        refreshGameView(); //
-                    } else {
-                        // 理论上，AI找到的路径中的每一步都应该是合法的，所以这里不应该执行到
-                        // 但作为防御性编程，如果发生错误，则停止动画并报告
-                        System.err.println("AI 动画错误: AI的合法移动未能成功执行: " + move + " 方向: " + moveDirection + "。动画中止。");
-                        animationTimer.stop();
-                        finishAISession(); // 调用完成动画的清理方法
-                        JOptionPane.showMessageDialog(GameFrame.this, "AI演示的某一步未能执行，动画中止。", "AI演示错误", JOptionPane.ERROR_MESSAGE);
-                        return; // 结束 actionPerformed
-                    }
-
-                    // 准备播放下一步动画
-                    currentMoveIndex++;
+                    // 开始棋子移动动画
+                    Block selectedBlock = gameLogic.getSelectedBlock();
+                    final Direction finalMoveDirection = moveDirection;
+                    gamePanel.animateBlockMove(selectedBlock, finalMoveDirection);
+                    
+                    // 设置动画完成后的回调
+                    gamePanel.setAnimationCompleteCallback(() -> {
+                        // 动画完成后执行实际的棋子移动
+                        boolean moved = gameLogic.moveSelectedBlock(finalMoveDirection);
+                        
+                        if (moved) {
+                            // 如果移动成功，刷新游戏界面 (包括棋盘和状态栏)
+                            refreshGameView();
+                            
+                            // 准备播放下一步动画
+                            currentMoveIndex++;
+                        } else {
+                            // 理论上，AI找到的路径中的每一步都应该是合法的，所以这里不应该执行到
+                            // 但作为防御性编程，如果发生错误，则停止动画并报告
+                            System.err.println("AI 动画错误: AI的合法移动未能成功执行: " + move + " 方向: " + finalMoveDirection + "。动画中止。");
+                            animationTimer.stop();
+                            finishAISession(); // 调用完成动画的清理方法
+                            JOptionPane.showMessageDialog(GameFrame.this, "AI演示的某一步未能执行，动画中止。", "AI演示错误", JOptionPane.ERROR_MESSAGE);
+                        }
+                    });
                 } else {
                     // 所有动画步骤都已播放完毕
                     animationTimer.stop();      // 停止动画计时器
