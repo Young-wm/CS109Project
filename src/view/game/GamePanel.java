@@ -48,9 +48,6 @@ public class GamePanel extends JPanel {
     // 皮肤切换按钮
     private JButton skinToggleButton = new JButton("切换皮肤");
     
-    // 鼠标追踪器
-    private MouseTracker mouseTracker;
-    
     // 棋子动画管理器
     private BlockAnimator blockAnimator;
     
@@ -109,11 +106,7 @@ public class GamePanel extends JPanel {
                 skinToggleButton.setBounds(10, 10, 100, 30);
             }
         });
-        
-        // 初始化鼠标追踪器
-        mouseTracker = new MouseTracker(this);
-        // 设置鼠标轨迹颜色
-        mouseTracker.setTrackColor(new Color(255, 215, 0, 150)); // 金色半透明
+
     }
     
     /**
@@ -377,8 +370,7 @@ public class GamePanel extends JPanel {
             }
         }
         
-        // 绘制鼠标追踪和自定义光标 (直接在缓冲区上绘制)
-        mouseTracker.paint(offscreenGraphics);
+
         
         // 完成所有绘制后，将缓冲区内容一次性绘制到屏幕
         g.drawImage(offscreenBuffer, 0, 0, this);
@@ -424,46 +416,10 @@ public class GamePanel extends JPanel {
      */
     // public void clearImageCache() { ... }
     
-    /**
-     * 设置自定义光标
-     * @param imagePath 图像路径
-     * @param hotspotX 热点X坐标
-     * @param hotspotY 热点Y坐标
-     */
-    public void setCustomCursor(String imagePath, int hotspotX, int hotspotY) {
-        mouseTracker.setCustomCursor(imagePath, hotspotX, hotspotY);
-    }
+
+
     
-    /**
-     * 恢复默认光标
-     */
-    public void restoreDefaultCursor() {
-        mouseTracker.restoreDefaultCursor();
-    }
-    
-    /**
-     * 设置是否显示鼠标轨迹
-     * @param show 是否显示
-     */
-    public void setShowMouseTrack(boolean show) {
-        mouseTracker.setShowTrack(show);
-    }
-    
-    /**
-     * 设置鼠标轨迹颜色
-     * @param color 颜色
-     */
-    public void setMouseTrackColor(Color color) {
-        mouseTracker.setTrackColor(color);
-    }
-    
-    /**
-     * 设置鼠标轨迹线宽
-     * @param width 线宽
-     */
-    public void setMouseTrackWidth(float width) {
-        mouseTracker.setTrackWidth(width);
-    }
+
     
     /**
      * 开始棋子移动动画

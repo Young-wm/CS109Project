@@ -193,28 +193,69 @@ public class GameFrame3 extends JFrame {
         this.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
+                // 如果动画正在进行，忽略键盘输入
+                if (gamePanel3.isAnimating()) {
+                    return;
+                }
+                
                 boolean moved = false;
+                Direction3 moveDirection = null;
+                
                 switch (e.getKeyCode()) {
                     case KeyEvent.VK_UP:
                     case KeyEvent.VK_W:
-                        moved = gameLogic3.moveSelectedBlock(Direction3.UP);
+                        moveDirection = Direction3.UP;
                         break;
                     case KeyEvent.VK_DOWN:
                     case KeyEvent.VK_S:
-                        moved = gameLogic3.moveSelectedBlock(Direction3.DOWN);
+                        moveDirection = Direction3.DOWN;
                         break;
                     case KeyEvent.VK_LEFT:
                     case KeyEvent.VK_A:
-                        moved = gameLogic3.moveSelectedBlock(Direction3.LEFT);
+                        moveDirection = Direction3.LEFT;
                         break;
                     case KeyEvent.VK_RIGHT:
                     case KeyEvent.VK_D:
-                        moved = gameLogic3.moveSelectedBlock(Direction3.RIGHT);
+                        moveDirection = Direction3.RIGHT;
                         break;
                 }
-                if (moved) {
-                    refreshGameView();
-                    checkAndShowWinDialog();
+                
+                if (moveDirection != null) {
+                    // 获取当前选中的棋子
+                    Block3 selectedBlock = gameLogic3.getSelectedBlock();
+                    if (selectedBlock != null) {
+                        // 检查是否可以移动
+                        if (gameLogic3.canMove(selectedBlock, moveDirection.getDx(), moveDirection.getDy())) {
+                            // 开始动画
+                            gamePanel3.animateBlockMove(selectedBlock, moveDirection);
+                            
+                            // 设置动画完成后的回调
+                            final Direction3 finalMoveDirection = moveDirection;
+                            gamePanel3.setAnimationCompleteCallback(() -> {
+                                // 动画完成后执行实际的棋子移动
+                                boolean success = gameLogic3.moveSelectedBlock(finalMoveDirection);
+                                
+                                // 在模型更新后，通知BlockAnimator可以清理已完成的动画状态
+                                if (gamePanel3.getBlockAnimator() != null) {
+                                    gamePanel3.getBlockAnimator().finalizeAllPendingAnimations();
+                                }
+                                
+                                if (success) {
+                                    refreshGameView();
+                                    checkAndShowWinDialog();
+                                } else {
+                                    // 如果移动不成功（理论上在canMove检查后不应发生）
+                                    // 也应重绘以确保视图与模型一致
+                                    gamePanel3.repaint();
+                                }
+                            });
+                            moved = true;
+                        }
+                    }
+                }
+                
+                if (!moved) {
+                    // 如果没有移动，可以考虑添加一些反馈（如音效或提示）
                 }
             }
         });
@@ -563,6 +604,14 @@ public class GameFrame3 extends JFrame {
             gameTimer.stop();
         }
         super.dispose();
+    }
+
+    /**
+     * 获取游戏面板实例
+     * @return 游戏面板实例
+     */
+    public GamePanel3 getGamePanel() {
+        return this.gamePanel3;
     }
 
 }

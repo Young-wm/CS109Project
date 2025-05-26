@@ -157,28 +157,69 @@ public class GameFrame2 extends JFrame {
         this.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
+                // 如果动画正在进行，忽略键盘输入
+                if (gamePanel2.isAnimating()) {
+                    return;
+                }
+                
                 boolean moved = false;
+                Direction2 moveDirection = null;
+                
                 switch (e.getKeyCode()) {
                     case KeyEvent.VK_UP:
                     case KeyEvent.VK_W:
-                        moved = gameLogic2.moveSelectedBlock(Direction2.UP);
+                        moveDirection = Direction2.UP;
                         break;
                     case KeyEvent.VK_DOWN:
                     case KeyEvent.VK_S:
-                        moved = gameLogic2.moveSelectedBlock(Direction2.DOWN);
+                        moveDirection = Direction2.DOWN;
                         break;
                     case KeyEvent.VK_LEFT:
                     case KeyEvent.VK_A:
-                        moved = gameLogic2.moveSelectedBlock(Direction2.LEFT);
+                        moveDirection = Direction2.LEFT;
                         break;
                     case KeyEvent.VK_RIGHT:
                     case KeyEvent.VK_D:
-                        moved = gameLogic2.moveSelectedBlock(Direction2.RIGHT);
+                        moveDirection = Direction2.RIGHT;
                         break;
                 }
-                if (moved) {
-                    refreshGameView();
-                    checkAndShowWinDialog();
+                
+                if (moveDirection != null) {
+                    // 获取当前选中的棋子
+                    Block2 selectedBlock = gameLogic2.getSelectedBlock();
+                    if (selectedBlock != null) {
+                        // 检查是否可以移动
+                        if (gameLogic2.canMove(selectedBlock, moveDirection.getDx(), moveDirection.getDy())) {
+                            // 开始动画
+                            gamePanel2.animateBlockMove(selectedBlock, moveDirection);
+                            
+                            // 设置动画完成后的回调
+                            final Direction2 finalMoveDirection = moveDirection;
+                            gamePanel2.setAnimationCompleteCallback(() -> {
+                                // 动画完成后执行实际的棋子移动
+                                boolean success = gameLogic2.moveSelectedBlock(finalMoveDirection);
+                                
+                                // 在模型更新后，通知BlockAnimator可以清理已完成的动画状态
+                                if (gamePanel2.getBlockAnimator() != null) {
+                                    gamePanel2.getBlockAnimator().finalizeAllPendingAnimations();
+                                }
+                                
+                                if (success) {
+                                    refreshGameView();
+                                    checkAndShowWinDialog();
+                                } else {
+                                    // 如果移动不成功（理论上在canMove检查后不应发生）
+                                    // 也应重绘以确保视图与模型一致
+                                    gamePanel2.repaint();
+                                }
+                            });
+                            moved = true;
+                        }
+                    }
+                }
+                
+                if (!moved) {
+                    // 如果没有移动，可以考虑添加一些反馈（如音效或提示）
                 }
             }
         });
@@ -369,5 +410,13 @@ public class GameFrame2 extends JFrame {
         return gameLogic2;
     }
     //顺便写了一个gameLogic的getter以防其它开发的时候要用到GameFrame中的gameLogic
+
+    /**
+     * 获取游戏面板实例
+     * @return 游戏面板实例
+     */
+    public GamePanel2 getGamePanel() {
+        return this.gamePanel2;
+    }
 
 }

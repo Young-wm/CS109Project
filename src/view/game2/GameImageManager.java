@@ -98,23 +98,40 @@ public class GameImageManager {
      * @return 棋盘背景图片
      */
     public static Image getBoardImage() {
-        if (!initialized) initialize();
-        if (skinMode == 1) {
-            return null;  // 纯色模式不使用背景图片
-        }
+        ensureInitialized();
         return boardBackgroundImage;
     }
     
     /**
-     * 获取空白格子图片
-     * @return 空白格子图片
+     * 获取棋盘背景图片，并缩放到指定大小
+     * @param width 目标宽度
+     * @param height 目标高度
+     * @return 缩放后的棋盘背景图片
+     */
+    public static Image getBoardImage(int width, int height) {
+        ensureInitialized();
+        if (boardBackgroundImage == null) return null;
+        return resizeImageToFit(boardBackgroundImage, width, height);
+    }
+    
+    /**
+     * 获取空格图片
+     * @return 空格图片
      */
     public static Image getEmptyCellImage() {
-        if (!initialized) initialize();
-        if (skinMode == 1) {
-            return null;  // 纯色模式不使用空格图片
-        }
+        ensureInitialized();
         return emptyCellImage;
+    }
+    
+    /**
+     * 获取空格图片，并缩放到指定大小
+     * @param size 目标大小（正方形）
+     * @return 缩放后的空格图片
+     */
+    public static Image getEmptyCellImage(int size) {
+        ensureInitialized();
+        if (emptyCellImage == null) return null;
+        return resizeImageToFit(emptyCellImage, size, size);
     }
     
     /**
@@ -205,5 +222,9 @@ public class GameImageManager {
         int newHeight = (int) (imgHeight * ratio);
         
         return image.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
+    }
+    
+    private static void ensureInitialized() {
+        if (!initialized) initialize();
     }
 } 

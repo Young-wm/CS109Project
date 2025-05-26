@@ -1,7 +1,7 @@
-package view.game;
+package view.game3;
 
-import controller.Block;
-import controller.Direction;
+import controller3.Block3;
+import controller3.Direction3;
 
 import java.awt.*;
 import java.util.HashMap;
@@ -67,7 +67,7 @@ public class BlockAnimator {
      * @param direction 移动方向
      * @param pieceImageForAnimation 预取的图像
      */
-    public void animateBlockMove(Block block, Direction direction, Image pieceImageForAnimation) {
+    public void animateBlockMove(Block3 block, Direction3 direction, Image pieceImageForAnimation) {
         if (block == null || direction == null) {
             return;
         }
@@ -156,7 +156,7 @@ public class BlockAnimator {
             }
             // 此处不再自动调用 animationCompleteCallback，它应该在所有动画首次到达completed状态时被触发
         }
-
+        
         // 如果有动画首次达到完成状态，并且之前没有其他正在等待确认的动画，则调用回调
         // 回调应该在所有当前批次的动画都转移到pending时触发一次
         // 或者，回调的意义变为 "有一批动画完成了视觉表现"
@@ -204,7 +204,7 @@ public class BlockAnimator {
      * @param offsetY 棋盘Y偏移
      * @return 棋子的绘制位置和大小
      */
-    public Rectangle getAnimatedBlockBounds(Block block, int cellSize, int offsetX, int offsetY) {
+    public Rectangle getAnimatedBlockBounds(Block3 block, int cellSize, int offsetX, int offsetY) {
         if (block == null) {
             return null;
         }
@@ -315,7 +315,7 @@ public class BlockAnimator {
         final long startTime;   // 动画开始时间
         float progress;         // 动画进度 (0.0 - 1.0)
         boolean complete;       // 动画是否完成
-        Image pieceImageForAnimation; // 新增：用于此动画的特定图像实例
+        Image pieceImageForAnimation; // 用于此动画的特定图像实例
         
         AnimationState(int blockId, float startX, float startY, float targetX, float targetY, long startTime, Image pieceImage) {
             this.blockId = blockId;
