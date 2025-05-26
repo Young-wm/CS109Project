@@ -241,6 +241,8 @@ public class GameFrame3 extends JFrame {
                                 }
                                 
                                 if (success) {
+                                    // 播放棋子移动音效
+                                    view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
                                     refreshGameView();
                                     checkAndShowWinDialog();
                                 } else {
@@ -551,6 +553,8 @@ public class GameFrame3 extends JFrame {
                     boolean moved = gameLogic3.moveSelectedBlock(moveDirection);
 
                     if (moved) {
+                        // 播放棋子移动音效
+                        view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
                         refreshGameView();
                     } else {
                         System.err.println("AI 动画错误: 移动失败 " + move);

@@ -170,6 +170,8 @@ public class ControlPanel2 extends JPanel implements ActionListener {
                 }
                 
                 if (success) {
+                    // 播放棋子移动音效
+                    view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
                     mainFrame.refreshGameView();
                     mainFrame.checkAndShowWinDialog();
                 } else {

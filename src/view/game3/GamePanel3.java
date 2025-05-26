@@ -359,6 +359,8 @@ public class GamePanel3 extends JPanel {
                 if (originalPieceImage != null) {
                     // 对每个棋子图片进行缩放
                     imageToDraw = originalPieceImage.getScaledInstance(blockPixelWidth, blockPixelHeight, Image.SCALE_SMOOTH);
+                    // 添加缺失的绘制语句
+                    offscreenGraphics.drawImage(imageToDraw, blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight, this);
                 } else {
                     // 如果没有找到图片，使用默认颜色填充
                     Color pieceColor = pieceColors.getOrDefault(block.getId(), new Color(200, 200, 200));
