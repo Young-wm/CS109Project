@@ -5,6 +5,7 @@ import controller4.GameLogic4;
 import view.frontend.resourses.ResourceManager;
 import view.audio.AudioManager;
 import view.frontend.LoginFrame.AuthFrame;
+import view.game.MouseTrailLayer;
 
 import javax.swing.*;
 import java.awt.*;
@@ -168,6 +169,11 @@ public class GameFrame4 extends JFrame {
             setResizable(true);
             //使游戏窗口大小可调，如果后期不方便可以设为false
             setVisible(true);
+
+            // 添加鼠标轨迹层
+            MouseTrailLayer mouseTrailLayer = new MouseTrailLayer();
+            setGlassPane(mouseTrailLayer);
+            mouseTrailLayer.setVisible(true);
 
             updateStatus();
         } catch (Exception e) {

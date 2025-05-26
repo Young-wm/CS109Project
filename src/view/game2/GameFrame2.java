@@ -2,6 +2,7 @@ package view.game2;
 
 import controller2.*;
 import view.game.MouseTrailLayer;
+import view.frontend.resourses.VictoryFrame;
 
 import javax.swing.*;
 import java.awt.*;
@@ -270,16 +271,16 @@ public class GameFrame2 extends JFrame {
             String formattedTime = GameFrame2.formatTime(gameLogic2.getGameState().getElapsedTimeInSeconds());
             int steps = gameLogic2.getGameState().getSteps();
             
-            // 使用简单的对话框显示胜利信息
-            JOptionPane.showMessageDialog(this,
-                    "恭喜你通过了第1关！\n" +
-                    "花费时间: " + formattedTime + "\n" +
-                    "步数: " + steps,
-                    "胜利",
-                    JOptionPane.INFORMATION_MESSAGE);
+            // 使用新的VictoryFrame来显示胜利界面
+            VictoryFrame.showVictory(
+                    formattedTime, 
+                    steps, 
+                    1, // 当前关卡为1
+                    "victory_background1.jpg" // 关卡1的胜利背景图片路径
+            );
         }
     }
-    //这里使用了新的胜利界面，需要在resources文件夹中放入名为victory_background2.jpg的图片
+    //这里使用了新的胜利界面，需要在resources文件夹中放入名为victory_background1.jpg的图片
 
 
     public void handleUndo() {
@@ -442,7 +443,7 @@ public class GameFrame2 extends JFrame {
                 gameTimer.start();
             }
         }
-        JOptionPane.showMessageDialog(this, "棋盘已使用“大挪移”！", "大挪移", JOptionPane.INFORMATION_MESSAGE);
+        JOptionPane.showMessageDialog(this, "棋盘已使用\"大挪移\"！", "大挪移", JOptionPane.INFORMATION_MESSAGE);
     }
 
 
@@ -453,16 +454,16 @@ public class GameFrame2 extends JFrame {
         }
         gamePanel2.cancelAnimations(); // 确保没有棋子动画在进行
 
-        // 检查“兵1”是否存在
+        // 检查"兵1"是否存在
         if (gameLogic2.getGameState().getBoard().getBlockById(GameLogic2.BOMB_TARGET_BLOCK_ID) == null) {
-            JOptionPane.showMessageDialog(this, "“炸弹”目标（兵1）已不存在！", "炸弹", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "\"炸弹\"目标（兵1）已不存在！", "炸弹", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         boolean success = gameLogic2.useBomb();
         if (success) {
             refreshGameView();
-            JOptionPane.showMessageDialog(this, "“炸弹”已使用！兵1被移除。", "炸弹", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "\"炸弹\"已使用！兵1被移除。", "炸弹", JOptionPane.INFORMATION_MESSAGE);
             checkAndShowWinDialog(); // 检查使用炸弹后是否获胜
         }
     }
