@@ -33,8 +33,8 @@ public class Board2 implements Serializable {
     //这里这样子定义board的宽高后面如果想要增加关卡会方便很多
     private int width; //棋盘的宽
     private int height;//棋盘的高
-    private int[][] grid;
-    private Map<Integer, Block2> blocks;
+    public int[][] grid;
+    public Map<Integer, Block2> blocks;
     //grid这个数组我准备用来储存每个小格的状态，即每个小格被id为什么的方块占领了
     //Map<>则是用来将每个方块和它的唯一的id对应起来，用Map<>后面要好查找很多
 
@@ -75,16 +75,16 @@ public class Board2 implements Serializable {
 
         //接下来我要将所有block初始化：
         List<Block2> initialBlock2s = new ArrayList<>();
-        initialBlock2s.add(new Block2(1, "曹操", 2, 2, 1, 2));//1号对应大boss曹操
-        initialBlock2s.add(new Block2(2, "关羽", 2, 1, 1, 0));//2号对应二弟关羽
-        initialBlock2s.add(new Block2(3, "张飞", 1, 2, 0, 0)); // 3号对应三弟张飞
-        initialBlock2s.add(new Block2(4, "赵云", 1, 2, 3, 0)); // 4号对应赵子龙
-        initialBlock2s.add(new Block2(5, "马超", 1, 2, 0, 2)); // 5号对应马超
-        initialBlock2s.add(new Block2(6, "黄忠", 1, 2, 3, 2)); // 6号对应老将军黄忠
-        initialBlock2s.add(new Block2(7, "兵1", 1, 1, 1, 1));
-        initialBlock2s.add(new Block2(8, "兵2", 1, 1, 2, 1));
-        initialBlock2s.add(new Block2(9, "兵3", 1, 1, 1, 4));
-        initialBlock2s.add(new Block2(10, "兵4", 1, 1, 2, 4)); // 4个小兵按照顺序摆放好
+        initialBlock2s.add(new Block2(1, "曹操", 2, 2, 2, 1));//1号对应大boss曹操
+        initialBlock2s.add(new Block2(2, "关羽", 2, 1, 2, 3));//2号对应二弟关羽
+        initialBlock2s.add(new Block2(3, "张飞", 1, 2, 1, 1)); // 3号对应三弟张飞
+        initialBlock2s.add(new Block2(4, "赵云", 1, 2, 1, 3)); // 4号对应赵子龙
+        initialBlock2s.add(new Block2(5, "马超", 1, 2, 0, 1)); // 5号对应马超
+        initialBlock2s.add(new Block2(6, "黄忠", 1, 2, 0, 3)); // 6号对应老将军黄忠
+        initialBlock2s.add(new Block2(7, "兵1", 1, 1, 0, 0));
+        initialBlock2s.add(new Block2(8, "兵2", 1, 1, 2, 4));
+        initialBlock2s.add(new Block2(9, "兵3", 1, 1, 3, 4));
+        initialBlock2s.add(new Block2(10, "兵4", 1, 1, 1, 0)); // 4个小兵按照顺序摆放好
 
         for (Block2 block2 : initialBlock2s) {
             addBlockToBoard(block2);
@@ -202,4 +202,92 @@ public class Board2 implements Serializable {
         initialize();
     }
     //可以通过这个构造方法非常简洁快速地构造一个横刀立马的图，且所有东西都是初始化的
+
+    public Board2(Board2 other) {
+        this.width = other.width;
+        this.height = other.height;
+        this.grid = new int[this.height][this.width];
+        this.blocks = new HashMap<>();
+
+        // 深拷贝棋子 (Block3)
+        for (Map.Entry<Integer, Block2> entry : other.blocks.entrySet()) {
+            Block2 originalBlock = entry.getValue();
+            Block2 copiedBlock = new Block2(originalBlock.getId(), originalBlock.getName(),
+                    originalBlock.getWidth(), originalBlock.getHeight(),
+                    originalBlock.getX(), originalBlock.getY());
+            this.blocks.put(copiedBlock.getId(), copiedBlock);
+        }
+
+        // 深拷贝棋盘网格 (grid)
+        for (int i = 0; i < this.height; i++) {
+            this.grid[i] = Arrays.copyOf(other.grid[i], this.width);
+        }
+    }
+
+
+    // 这里加了一个类实现大挪移逻辑
+    public void setTeleportState() {
+        this.blocks.clear();
+        for (int i = 0; i < height; i++) {
+            for (int j = 0; j < width; j++) {
+                grid[i][j] = EMPTY_CELL_ID;
+            }
+        }
+
+        List<Block2> teleportBlocks = new ArrayList<>();
+        // 经典的“横刀立马”布局定义
+        // 曹操 (ID 1, 2x2) at (1,0)
+        // 关羽 (ID 2, 2x1) at (1,2)
+        // 张飞 (ID 3, 1x2) at (0,0)
+        // 赵云 (ID 4, 1x2) at (3,0)
+        // 马超 (ID 5, 1x2) at (0,2)
+        // 黄忠 (ID 6, 1x2) at (3,2)
+        // 兵1 (ID 7, 1x1) at (1,3)
+        // 兵2 (ID 8, 1x1) at (2,3)
+        // 兵3 (ID 9, 1x1) at (1,4)
+        // 兵4 (ID 10, 1x1) at (2,4)
+        teleportBlocks.add(new Block2(1, "曹操", 2, 2, 0, 2));
+        teleportBlocks.add(new Block2(2, "关羽", 2, 1, 2, 3));
+        teleportBlocks.add(new Block2(3, "张飞", 1, 2, 3, 0));
+        teleportBlocks.add(new Block2(4, "赵云", 1, 2, 2, 0));
+        teleportBlocks.add(new Block2(5, "马超", 1, 2, 1, 0));
+        teleportBlocks.add(new Block2(6, "黄忠", 1, 2, 0, 0));
+        teleportBlocks.add(new Block2(7, "兵1", 1, 1, 2, 2)); // 大挪移后的兵1位置
+        teleportBlocks.add(new Block2(8, "兵2", 1, 1, 0, 4));
+        teleportBlocks.add(new Block2(9, "兵3", 1, 1, 1, 4));
+        teleportBlocks.add(new Block2(10, "兵4", 1, 1, 3, 2));
+
+
+        for (Block2 block : teleportBlocks) {
+            addBlockToBoard(block);
+        }
+        System.out.println("棋盘发生“大挪移”");
+    }
+
+
+    // 这个方法是为了实现炸弹功能
+    public boolean removeBlockById(int blockId) {
+        Block2 blockToRemove = blocks.get(blockId);
+        if (blockToRemove == null) {
+            System.out.println("未找到ID为 " + blockId + " 的棋子，无法移除。");
+            return false;
+        }
+
+        // 从grid中清除该棋子占据的位置
+        for (int r = 0; r < blockToRemove.getHeight(); r++) {
+            for (int c = 0; c < blockToRemove.getWidth(); c++) {
+                int currentX = blockToRemove.getX() + c;
+                int currentY = blockToRemove.getY() + r;
+                if (isValidCoordinate(currentX, currentY) && grid[currentY][currentX] == blockId) {
+                    grid[currentY][currentX] = EMPTY_CELL_ID;
+                }
+            }
+        }
+        // 从blocks映射中移除该棋子
+        blocks.remove(blockId);
+        System.out.println("ID为 " + blockId + " 的棋子已被移除。");
+        return true;
+    }
+
+
 }

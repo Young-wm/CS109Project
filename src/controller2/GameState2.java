@@ -1,6 +1,9 @@
 package controller2;
 
 
+import controller.Board;
+import controller.GameState;
+
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Stack;
@@ -139,4 +142,16 @@ public class GameState2 implements Serializable {
     }
 
     //同样顺手重写了equals和hashCode方法
+
+    public GameState2(GameState2 other) {
+        this.board2 = new Board2(other.board2); // 使用 Board 的拷贝构造函数进行深拷贝
+        this.steps = other.steps;
+        this.elapsedTimeInSeconds = other.elapsedTimeInSeconds;
+        this.gameWon = other.gameWon;
+        // AI搜索中的路径是独立生成的，所以 moveHistory 通常不需要在这里深拷贝。
+        // 但对于我们的AI SearchNode，路径是单独维护的。
+        this.moveHistory = new Stack<>();
+        // AI的SearchNode会自己管理路径，这里给个空的就好
+    }
+
 }
