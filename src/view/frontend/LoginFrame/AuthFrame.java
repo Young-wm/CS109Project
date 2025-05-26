@@ -7,6 +7,7 @@ import view.game4.GameFrame4;
 import view.frontend.resourses.ResourceManager;
 import view.frontend.TextAnimator;
 import view.audio.AudioManager;
+import view.game.MouseTrailLayer;
 import java.io.File;
 /*
 * 这个类是整个初始界面，包含登录按钮，注册按钮，以及游客模式按钮
@@ -142,6 +143,11 @@ public class AuthFrame extends JFrame {
         add(mainPanel);
         showLoginPanel(); // Show login panel by default
         setVisible(true);
+
+        // 添加鼠标轨迹层
+        MouseTrailLayer mouseTrailLayer = new MouseTrailLayer();
+        setGlassPane(mouseTrailLayer);
+        mouseTrailLayer.setVisible(true);
     }
     
     /**

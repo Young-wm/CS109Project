@@ -10,6 +10,7 @@ import view.frontend.controller.HoverButton;
 import view.frontend.TextAnimator;
 import view.audio.AudioManager;
 import view.frontend.resourses.ResourceManager;
+import view.game.MouseTrailLayer;
 
 import javax.swing.*;
 import java.awt.*;
@@ -105,6 +106,12 @@ public class LevelSelectionFrame extends JFrame implements ComponentListener {
                 System.err.println("播放背景音乐失败");
                 e.printStackTrace();
             }
+
+            // 添加鼠标轨迹层
+            MouseTrailLayer mouseTrailLayer = new MouseTrailLayer();
+            setGlassPane(mouseTrailLayer);
+            mouseTrailLayer.setVisible(true);
+
         } catch (Exception e) {
             System.err.println("初始化关卡选择界面失败");
             e.printStackTrace();

@@ -1,6 +1,7 @@
 package view.game2;
 
 import controller2.*;
+import view.game.MouseTrailLayer;
 
 import javax.swing.*;
 import java.awt.*;
@@ -99,6 +100,11 @@ public class GameFrame2 extends JFrame {
         //使游戏窗口大小可调，如果后期不方便可以设为false
         
         setVisible(true);
+
+        // 添加鼠标轨迹层
+        MouseTrailLayer mouseTrailLayer = new MouseTrailLayer();
+        setGlassPane(mouseTrailLayer);
+        mouseTrailLayer.setVisible(true);
 
         updateStatus();
     }
