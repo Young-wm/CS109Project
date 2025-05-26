@@ -22,27 +22,31 @@ public class ControlPanel2 extends JPanel implements ActionListener {
     private JButton undoButton, resetButton;
     private JButton saveButton, loadButton;
     //这里创建了游戏中的所有Button
+    private JButton aiSolveButton;
+
+    private JButton teleportButton;
+    private JButton bombButton;
 
     public ControlPanel2(GameFrame2 frame) {
         this.mainFrame = frame;
 
         setLayout(new GridBagLayout());
         /*
-        *这里补充几种常见的setLayout：
-        * 1.BorderLayout：将容器划分为五个区域：NORTH (北, 上)、SOUTH (南, 下)、
-        * WEST (西, 左)、EAST (东, 右) 和 CENTER (中)。
-        * 添加组件时需要指定要放入哪个区域，即.add(myButton, BorderLayout.NORTH);。
-        * 2.FlowLayout：像文字排版一样，将组件从左到右、从上到下地依次排列。
-        * 如果当前行放不下，它会自动"流"到下一行。
-        * 3.GridBagLayout：最复杂但是也最自由的排列形式，
-        * 由于ControlPanel里面有上面8个JLabel，所以我决定使用这种setLayout
-        * 这里简单介绍一下：
-        *   （1）每一个组件都有它的一个约束GridBagConstraints，约束了组件的以下性质：gridx, gridy：组件左上角所在的网格单元坐标；
-        *       gridwidth, gridheight: 组件横跨的列数和行数等
-        *   （2）anchor,即分配到的区域，且比BorderLayout更加复杂，它还有西南，东北这样的方向
-        *   （3）inserts，即设定边距
-        *   （4）fill，设定某个组件在其所在区域是否要拉伸
-        *   （5）……
+         *这里补充几种常见的setLayout：
+         * 1.BorderLayout：将容器划分为五个区域：NORTH (北, 上)、SOUTH (南, 下)、
+         * WEST (西, 左)、EAST (东, 右) 和 CENTER (中)。
+         * 添加组件时需要指定要放入哪个区域，即.add(myButton, BorderLayout.NORTH);。
+         * 2.FlowLayout：像文字排版一样，将组件从左到右、从上到下地依次排列。
+         * 如果当前行放不下，它会自动"流"到下一行。
+         * 3.GridBagLayout：最复杂但是也最自由的排列形式，
+         * 由于ControlPanel里面有上面8个JLabel，所以我决定使用这种setLayout
+         * 这里简单介绍一下：
+         *   （1）每一个组件都有它的一个约束GridBagConstraints，约束了组件的以下性质：gridx, gridy：组件左上角所在的网格单元坐标；
+         *       gridwidth, gridheight: 组件横跨的列数和行数等
+         *   （2）anchor,即分配到的区域，且比BorderLayout更加复杂，它还有西南，东北这样的方向
+         *   （3）inserts，即设定边距
+         *   （4）fill，设定某个组件在其所在区域是否要拉伸
+         *   （5）……
          */
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
@@ -57,6 +61,9 @@ public class ControlPanel2 extends JPanel implements ActionListener {
         saveButton = new JButton("Save");
         loadButton = new JButton("Load");
         // 创建按钮
+        aiSolveButton = new JButton("AI");
+        teleportButton = new JButton("大挪移");
+        bombButton = new JButton("炸弹");
 
         // 上按钮 (第0行，第1列)
         gbc.gridx = 1;
@@ -100,6 +107,23 @@ public class ControlPanel2 extends JPanel implements ActionListener {
         gbc.gridy = 2;
         add(loadButton, gbc);
 
+        gbc.gridy = 3; // 所有这三个按钮都在第3行
+
+        gbc.gridx = 0;
+        gbc.gridwidth = 1; // AI按钮占1列
+        gbc.weightx = 0.33; // 可选：尝试通过权重来分配额外空间
+        add(aiSolveButton, gbc);
+
+        gbc.gridx = 1;
+        gbc.gridwidth = 1; // 大挪移按钮占1列
+        gbc.weightx = 0.33;
+        add(teleportButton, gbc);
+
+        gbc.gridx = 2;
+        gbc.gridwidth = 2;
+        gbc.weightx = 0.34;
+        add(bombButton, gbc);
+
         upButton.addActionListener(this);
         downButton.addActionListener(this);
         leftButton.addActionListener(this);
@@ -108,6 +132,9 @@ public class ControlPanel2 extends JPanel implements ActionListener {
         resetButton.addActionListener(this);
         saveButton.addActionListener(this);
         loadButton.addActionListener(this);
+        aiSolveButton.addActionListener(this);
+        teleportButton.addActionListener(this);
+        bombButton.addActionListener(this);
         // 为所有按钮添加动作监听器
     }
 
@@ -133,17 +160,48 @@ public class ControlPanel2 extends JPanel implements ActionListener {
             mainFrame.handleSave();
         } else if (source == loadButton) {
             mainFrame.handleLoad();
+        }else if (source == aiSolveButton) {
+            mainFrame.handleAISolve(); // 调用 GameFrame3 中的新方法
+        }else if (source == teleportButton) {
+            mainFrame.handleTeleport();
+        } else if (source == bombButton) {
+            mainFrame.handleBomb();
         }
         mainFrame.requestFocusInWindow();
     }
     // 这个方法实现了 ActionListener 接口
+
+    public void setAllButtonsEnabled(boolean enabled) {
+        upButton.setEnabled(enabled);
+        downButton.setEnabled(enabled);
+        leftButton.setEnabled(enabled);
+        rightButton.setEnabled(enabled);
+        undoButton.setEnabled(enabled);
+        resetButton.setEnabled(enabled);
+        saveButton.setEnabled(enabled);
+        loadButton.setEnabled(enabled);
+        if (aiSolveButton != null) {
+            aiSolveButton.setEnabled(enabled);
+        }
+
+        if (teleportButton != null) {
+            teleportButton.setEnabled(enabled);
+        }
+
+        if (bombButton != null) {
+            bombButton.setEnabled(enabled);
+        }
+
+    }
+
+
 
     private void handleMovement(Direction2 direction2) {
         // 如果动画正在进行，忽略移动操作
         if (mainFrame.getGamePanel().isAnimating()) {
             return;
         }
-        
+
         // 获取当前选中的棋子
         controller2.Block2 selectedBlock = mainFrame.getGameLogic().getSelectedBlock();
         if (selectedBlock == null) {
@@ -152,23 +210,23 @@ public class ControlPanel2 extends JPanel implements ActionListener {
             JOptionPane.showMessageDialog(mainFrame, message, title, JOptionPane.WARNING_MESSAGE);
             return;
         }
-        
+
         // 检查是否可以移动
         if (mainFrame.getGameLogic().canMove(selectedBlock, direction2.getDx(), direction2.getDy())) {
             // 开始动画
             mainFrame.getGamePanel().animateBlockMove(selectedBlock, direction2);
-            
+
             // 设置动画完成后的回调
             final Direction2 finalDirection = direction2;
             mainFrame.getGamePanel().setAnimationCompleteCallback(() -> {
                 // 动画完成后执行实际的棋子移动
                 boolean success = mainFrame.getGameLogic().moveSelectedBlock(finalDirection);
-                
+
                 // 在模型更新后，通知BlockAnimator可以清理已完成的动画状态
                 if (mainFrame.getGamePanel().getBlockAnimator() != null) {
                     mainFrame.getGamePanel().getBlockAnimator().finalizeAllPendingAnimations();
                 }
-                
+
                 if (success) {
                     // 播放棋子移动音效
                     view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();

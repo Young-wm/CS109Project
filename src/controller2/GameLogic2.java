@@ -1,6 +1,7 @@
 package controller2;
 
 import java.io.File;
+import java.util.Stack;
 
 /*
 *这个类给出了几个主要的方法：
@@ -17,6 +18,10 @@ public class GameLogic2 {
     //另外，其中的board又有isValidCoordinate()、getBlockIdAt()、getBlockById()、getBlocksCopy()、getGridCopy()、moveBlockOnBoard()这几个可能用到的方法
     private Block2 selectedBlock2;
     // 当前选中的方块
+
+
+    public static final int BOMB_TARGET_BLOCK_ID = 7;
+
 
     public GameLogic2() {
         this.gameState2 = new GameState2();
@@ -74,13 +79,7 @@ public class GameLogic2 {
     //这个方法实现的是块的移动，如果可以正常移动会返回true，并且把块移动过去，然后把步数增加1，再记录这次移动
     //另外，注意这个方法里面有一个selectedBlock的选中，所以这个方法再后面的使用的时候需要先用一次selectedBlockAt()这个方法，更新一下selectedBlock
 
-    /**
-     * 检查指定的棋子是否可以向指定方向移动
-     * @param block2 要检查的棋子
-     * @param dx X方向的移动量
-     * @param dy Y方向的移动量
-     * @return 如果可以移动返回true，否则返回false
-     */
+
     public boolean canMove(Block2 block2, int dx, int dy) {
         if (block2 == null || (dx == 0 && dy == 0)) {
             return false;
@@ -227,6 +226,45 @@ public class GameLogic2 {
     }
 
 
+    public void teleportBoard() {
+        if (gameState2.isGameWon()) {
+            System.out.println("游戏已胜利，无法进行“大挪移”。");
+            return;
+        }
+        // 保存当前状态的关键信息
+        int currentSteps = gameState2.getSteps();
+        long currentTime = gameState2.getElapsedTimeInSeconds();
+        Stack<MoveRecord2> currentHistory = new Stack<>();
+        currentHistory.addAll(gameState2.getMoveHistory()); // 深拷贝历史记录
+
+        gameState2.getBoard().setTeleportState(); // 改变棋盘布局
+
+        gameState2.setGameWon(checkWinConditionInternal()); // 检查新布局是否直接胜利
+        this.selectedBlock2 = null;
+        System.out.println("棋盘已使用“大挪移”。");
+    }
+
+    public boolean useBomb() {
+        if (gameState2.isGameWon()) {
+            System.out.println("游戏已胜利，无法使用“炸弹”。");
+            return false;
+        }
+        Board2 board = gameState2.getBoard();
+        if (board.getBlockById(BOMB_TARGET_BLOCK_ID) != null) {
+            boolean removed = board.removeBlockById(BOMB_TARGET_BLOCK_ID);
+            if (removed) {
+                System.out.println("“炸弹”已使用！棋子 ID " + BOMB_TARGET_BLOCK_ID + " 已被移除。");
+                this.selectedBlock2 = null;
+                if (checkWinConditionInternal()) {
+                    gameState2.setGameWon(true);
+                }
+                return true;
+            }
+        } else {
+            System.out.println("“炸弹”目标 (棋子 ID " + BOMB_TARGET_BLOCK_ID + ") 不在棋盘上。");
+        }
+        return false;
+    }
 
 
 }
