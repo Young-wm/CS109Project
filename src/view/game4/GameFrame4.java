@@ -33,6 +33,7 @@ public class GameFrame4 extends JFrame {
     //gameLogic是controller里面我写的最后一个类，里面包含了所有我需要的东西
     //具体关系如下：gameLogic里面有gameState，gameState里面有steps,moveHistory,elapsedTimeInSeconds,gameWon,board这几个field
     //而board又有isValidCoordinate()、getBlockIdAt()、getBlockById()、getBlocksCopy()、getGridCopy()、moveBlockOnBoard()这几个可能用到的方法
+
     private GamePanel4 gamePanel4;
     private ControlPanel4 controlPanel4;
     private StatusPanel4 statusPanel4;
@@ -298,18 +299,34 @@ public class GameFrame4 extends JFrame {
                             case KeyEvent.VK_UP:
                             case KeyEvent.VK_W:
                                 moved = gameLogic4.moveSelectedBlock(Direction4.UP);
+                                if (moved) {
+                                    // 播放棋子移动音效
+                                    view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
+                                }
                                 break;
                             case KeyEvent.VK_DOWN:
                             case KeyEvent.VK_S:
                                 moved = gameLogic4.moveSelectedBlock(Direction4.DOWN);
+                                if (moved) {
+                                    // 播放棋子移动音效
+                                    view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
+                                }
                                 break;
                             case KeyEvent.VK_LEFT:
                             case KeyEvent.VK_A:
                                 moved = gameLogic4.moveSelectedBlock(Direction4.LEFT);
+                                if (moved) {
+                                    // 播放棋子移动音效
+                                    view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
+                                }
                                 break;
                             case KeyEvent.VK_RIGHT:
                             case KeyEvent.VK_D:
                                 moved = gameLogic4.moveSelectedBlock(Direction4.RIGHT);
+                                if (moved) {
+                                    // 播放棋子移动音效
+                                    view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
+                                }
                                 break;
                         }
                         if (moved) {

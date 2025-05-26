@@ -205,6 +205,8 @@ public class GameFrame2 extends JFrame {
                                 }
                                 
                                 if (success) {
+                                    // 播放棋子移动音效
+                                    view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
                                     refreshGameView();
                                     checkAndShowWinDialog();
                                 } else {
@@ -255,7 +257,7 @@ public class GameFrame2 extends JFrame {
             
             // 使用简单的对话框显示胜利信息
             JOptionPane.showMessageDialog(this,
-                    "恭喜你通过了第2关！\n" +
+                    "恭喜你通过了第1关！\n" +
                     "花费时间: " + formattedTime + "\n" +
                     "步数: " + steps,
                     "胜利",

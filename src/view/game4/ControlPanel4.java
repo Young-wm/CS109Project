@@ -32,7 +32,7 @@ public class ControlPanel4 extends JPanel implements ActionListener {
         * WEST (西, 左)、EAST (东, 右) 和 CENTER (中)。
         * 添加组件时需要指定要放入哪个区域，即.add(myButton, BorderLayout.NORTH);。
         * 2.FlowLayout：像文字排版一样，将组件从左到右、从上到下地依次排列。
-        * 如果当前行放不下，它会自动“流”到下一行。
+        * 如果当前行放不下，它会自动"流"到下一行。
         * 3.GridBagLayout：最复杂但是也最自由的排列形式，
         * 由于ControlPanel里面有上面8个JLabel，所以我决定使用这种setLayout
         * 这里简单介绍一下：
@@ -121,6 +121,8 @@ public class ControlPanel4 extends JPanel implements ActionListener {
     private void handleMovement(Direction4 direction4) {
         boolean moved = mainFrame.getGameLogic().moveSelectedBlock(direction4);
         if (moved) {
+            // 播放棋子移动音效
+            view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
             mainFrame.refreshGameView();
             mainFrame.checkAndShowWinDialog();
         } else {

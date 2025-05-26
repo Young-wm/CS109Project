@@ -222,13 +222,14 @@ public class GameFrame extends JFrame {
                             boolean success = gameLogic.moveSelectedBlock(finalMoveDirection);
                             
                             // 在模型更新后，通知BlockAnimator可以清理已完成的动画状态
-                            // 这是关键的修改，确保在模型更新后才清理动画状态
                             if (gamePanel.getBlockAnimator() != null) {
                                 gamePanel.getBlockAnimator().finalizeAllPendingAnimations();
                             }
                             
                             if (success) {
-                                refreshGameView(); // 这通常会包含 repaint
+                                // 播放棋子移动音效
+                                view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
+                                refreshGameView();
                                 checkAndShowWinDialog();
                             } else {
                                 // 如果移动不成功（理论上在canMove检查后不应发生）
@@ -678,9 +679,16 @@ public class GameFrame extends JFrame {
                         // 动画完成后执行实际的棋子移动
                         boolean moved = gameLogic.moveSelectedBlock(finalMoveDirection);
                         
+                        // 在模型更新后，通知BlockAnimator可以清理已完成的动画状态
+                        if (gamePanel.getBlockAnimator() != null) {
+                            gamePanel.getBlockAnimator().finalizeAllPendingAnimations();
+                        }
+                        
                         if (moved) {
-                            // 如果移动成功，刷新游戏界面 (包括棋盘和状态栏)
+                            // 播放棋子移动音效
+                            view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
                             refreshGameView();
+                            checkAndShowWinDialog();
                             
                             // 准备播放下一步动画
                             currentMoveIndex++;
