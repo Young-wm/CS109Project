@@ -115,6 +115,11 @@ public class GameFrame extends JFrame {
         
         setVisible(true);
 
+        // 添加鼠标轨迹层
+        MouseTrailLayer mouseTrailLayer = new MouseTrailLayer();
+        setGlassPane(mouseTrailLayer);
+        mouseTrailLayer.setVisible(true);
+
         updateStatus();
     }
 
