@@ -430,7 +430,7 @@ public class BlockAnimator {
         final long startTime;   // 动画开始时间
         float progress;         // 动画进度 (0.0 - 1.0)
         boolean complete;       // 动画是否完成
-        Image pieceImageForAnimation; // 新增：用于此动画的特定图像实例
+        public Image pieceImageForAnimation; // 修改为 public
         
         AnimationState(int blockId, float startX, float startY, float targetX, float targetY, long startTime, Image pieceImage) {
             this.blockId = blockId;

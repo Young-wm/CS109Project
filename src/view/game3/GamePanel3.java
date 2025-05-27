@@ -1,6 +1,8 @@
 package view.game3;
 
 import controller3.*;
+import view.game.BlockAnimator;
+import view.game.GameImageManager;
 
 import javax.swing.*;
 import java.awt.*;
@@ -9,6 +11,7 @@ import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
+import java.awt.FontMetrics;
 
 /*
 * 这个类实现了整个完整的游戏panel
@@ -37,8 +40,6 @@ public class GamePanel3 extends JPanel {
     // 定义棋子的纯色填充颜色
     private Map<Integer, Color> pieceColors = new HashMap<>();
     
-    // 图片缓存，避免重复加载
-    private Map<Integer, Image> pieceImageCache = new HashMap<>();
     // 是否显示网格线
     private boolean showGridLines = false;
     // 是否显示棋子名称（纯色模式下显示，图片模式下不显示）
@@ -95,23 +96,23 @@ public class GamePanel3 extends JPanel {
         addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentResized(java.awt.event.ComponentEvent evt) {
-                clearImageCache(); // 清空图片缓存
-                repaint(); // 重绘面板
-                
-                // 调整按钮位置
-                skinToggleButton.setBounds(10, 10, 100, 30);
-                
                 // 面板大小变化时，清空离屏缓冲区和缓冲区绘图对象，以便重新创建
                 offscreenBuffer = null;
                 offscreenGraphics = null;
+
+                GameImageManager.clearScaledImageCache(); // 清空缩放图片缓存
+                repaint(); // 重绘面板
+
+                // 调整按钮位置
+                skinToggleButton.setBounds(10, 10, 100, 30);
             }
         });
         
-        // 初始化棋子动画管理器
+        // Initialize BlockAnimator AFTER all listeners are set up
         blockAnimator = new BlockAnimator(() -> repaint());
     }
     
-    /**
+    /**FFA500FF
      * 初始化棋子颜色映射（用于纯色模式）
      */
     private void initPieceColors() {
@@ -139,7 +140,7 @@ public class GamePanel3 extends JPanel {
         updatePieceNameVisibility();
         
         // 重绘面板
-        clearImageCache();  // 清除图片缓存
+        GameImageManager.clearScaledImageCache();  // 使用 GameImageManager 的缓存清理
         repaint();
         
         // 请求窗口焦点，确保键盘事件能够被正确捕获
@@ -191,29 +192,6 @@ public class GamePanel3 extends JPanel {
         return cellSize;
     }
 
-    /**
-     * 获取棋子图片，优先从缓存获取
-     * @param pieceId 棋子ID
-     * @return 对应的棋子图片
-     */
-    private Image getPieceImage(int pieceId) {
-        // 首先尝试从缓存获取
-        if (pieceImageCache.containsKey(pieceId)) {
-            return pieceImageCache.get(pieceId);
-        }
-        
-        // 从资源管理器获取图片
-        Image pieceImage = GameImageManager.getPieceImage(pieceId);
-        
-        // 如果图片存在，则缓存并返回
-        if (pieceImage != null) {
-            pieceImageCache.put(pieceId, pieceImage);
-            return pieceImage;
-        }
-        
-        return null;
-    }
-
     private void handleMouseClick(int mouseX, int mouseY) {
         if (gameLogic3.getGameState().isGameWon()) {
             return;
@@ -263,18 +241,19 @@ public class GamePanel3 extends JPanel {
             offscreenGraphics = offscreenBuffer.createGraphics();
             offscreenGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             offscreenGraphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            offscreenGraphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
         }
 
         offscreenGraphics.setComposite(AlphaComposite.Clear);
         offscreenGraphics.fillRect(0, 0, getWidth(), getHeight());
         offscreenGraphics.setComposite(AlphaComposite.SrcOver);
 
-        Image boardImage = GameImageManager.getBoardImage();
+        Image boardImage = GameImageManager.getBoardImage(board3.getWidth() * calculateCellSize(), board3.getHeight() * calculateCellSize());
         if (boardImage != null) {
-            offscreenGraphics.drawImage(boardImage, 0, 0, getWidth(), getHeight(), this);
-        } else {
-            offscreenGraphics.setColor(new Color(230, 230, 230));
-            offscreenGraphics.fillRect(0, 0, getWidth(), getHeight());
+            offscreenGraphics.drawImage(boardImage, offsetX, offsetY, board3.getWidth() * calculateCellSize(), board3.getHeight() * calculateCellSize(), this);
+        } else if (GameImageManager.getSkinMode() == 0) {
+            offscreenGraphics.setColor(Color.LIGHT_GRAY);
+            offscreenGraphics.fillRect(offsetX, offsetY, board3.getWidth() * calculateCellSize(), board3.getHeight() * calculateCellSize());
         }
         
         int cellSize = calculateCellSize();
@@ -309,22 +288,22 @@ public class GamePanel3 extends JPanel {
                     if (blockBounds.width <= 0 || blockBounds.height <= 0) continue; 
                 }
 
-                Image pieceImage = null;
                 Image finalImageToDraw = null;
                 BlockAnimator.AnimationState animState = blockAnimator.getAnimationState(block.getId());
 
                 if (animState != null && animState.pieceImageForAnimation != null && blockAnimator.isBlockAnimating(block.getId())) {
                     finalImageToDraw = animState.pieceImageForAnimation;
                 } else {
-                    pieceImage = GameImageManager.getPieceImage(block.getId());
-                    if (pieceImage != null) {
-                        finalImageToDraw = pieceImage.getScaledInstance(blockBounds.width, blockBounds.height, Image.SCALE_SMOOTH);
+                    // 从 GameImageManager 获取缩放后的图片
+                    if (GameImageManager.getSkinMode() == 0) { // 图片模式
+                        finalImageToDraw = GameImageManager.getScaledPieceImage(block.getId(), blockBounds.width, blockBounds.height);
                     }
                 }
 
-                if (finalImageToDraw != null) {
+                if (finalImageToDraw != null && GameImageManager.getSkinMode() == 0) { // 确保是图片模式且图片存在
                     offscreenGraphics.drawImage(finalImageToDraw, blockBounds.x, blockBounds.y, blockBounds.width, blockBounds.height, this);
                 } else {
+                    // 图片缺失或纯色模式下的回退绘制逻辑
                     drawFallbackPiece(offscreenGraphics, block, blockBounds.x, blockBounds.y, blockBounds.width, blockBounds.height);
                 }
 
@@ -346,13 +325,6 @@ public class GamePanel3 extends JPanel {
     public void setShowGridLines(boolean show) {
         this.showGridLines = show;
         repaint();
-    }
-    
-    /**
-     * 清除图片缓存
-     */
-    public void clearImageCache() {
-        pieceImageCache.clear();
     }
     
     /**
@@ -405,10 +377,14 @@ public class GamePanel3 extends JPanel {
         if (blockAnimator == null || block == null || direction == null) {
             return;
         }
-        Image pieceImage = GameImageManager.getPieceImage(block.getId());
-        if (GameImageManager.getSkinMode() == 1) { // 1 for solid color mode
-            pieceImage = null; 
+        Image pieceImage = null;
+        if (GameImageManager.getSkinMode() == 0) { // 图片模式
+            int cellSize = calculateCellSize();
+            int blockPixelWidth = block.getWidth() * cellSize;
+            int blockPixelHeight = block.getHeight() * cellSize;
+            pieceImage = GameImageManager.getScaledPieceImage(block.getId(), blockPixelWidth, blockPixelHeight);
         }
+        // 如果是纯色模式, pieceImage 保持 null
         blockAnimator.animateBlockMove(block, direction, pieceImage);
     }
 
@@ -448,7 +424,7 @@ public class GamePanel3 extends JPanel {
         return blockAnimator;
     }
 
-    // Copied and adapted from view.game.GamePanel
+
     private void drawFallbackPiece(Graphics2D g2d, Block3 block, int x, int y, int width, int height) {
         Color pieceColor = pieceColors.getOrDefault(block.getId(), new Color(200, 200, 200));
         g2d.setColor(pieceColor);
