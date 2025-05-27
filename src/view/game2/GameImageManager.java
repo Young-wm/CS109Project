@@ -227,5 +227,4 @@ public class GameImageManager {
     private static void ensureInitialized() {
         if (!initialized) initialize();
     }
-} 
-} 
+}
