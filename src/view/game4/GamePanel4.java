@@ -2,6 +2,7 @@ package view.game4;
 
 import controller4.*;
 import view.game.BlockAnimator;
+import view.game.GameImageManager;
 
 import javax.swing.*;
 import java.awt.*;
@@ -10,6 +11,7 @@ import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
+import java.awt.FontMetrics;
 
 /*
 * 这个类实现了整个完整的游戏panel
@@ -38,8 +40,6 @@ public class GamePanel4 extends JPanel {
     // 定义棋子的纯色填充颜色
     private Map<Integer, Color> pieceColors = new HashMap<>();
     
-    // 图片缓存，避免重复加载
-    private Map<Integer, Image> pieceImageCache = new HashMap<>();
     // 是否显示网格线
     private boolean showGridLines = false;
     // 是否显示棋子名称（纯色模式下显示，图片模式下不显示）
@@ -95,7 +95,7 @@ public class GamePanel4 extends JPanel {
             public void componentResized(java.awt.event.ComponentEvent evt) {
                 offscreenBuffer = null;
                 offscreenGraphics = null;
-                clearImageCache(); // 清空图片缓存
+                GameImageManager.clearScaledImageCache();
                 repaint(); // 重绘面板
                 
                 // 调整按钮位置
@@ -109,16 +109,16 @@ public class GamePanel4 extends JPanel {
      */
     private void initPieceColors() {
         // 为每个棋子分配一个颜色
-        pieceColors.put(1, new Color(220, 20, 60));    // 曹操 - 红色
-        pieceColors.put(2, new Color(0, 128, 0));      // 关羽 - 绿色
-        pieceColors.put(3, new Color(70, 130, 180));   // 张飞 - 钢蓝色
-        pieceColors.put(4, new Color(70, 130, 180));   // 赵云 - 钢蓝色
-        pieceColors.put(5, new Color(70, 130, 180));   // 马超 - 钢蓝色
-        pieceColors.put(6, new Color(70, 130, 180));   // 黄忠 - 钢蓝色
-        pieceColors.put(7, new Color(255, 165, 0));    // 小兵 - 橙色
-        pieceColors.put(8, new Color(255, 165, 0));    // 小兵 - 橙色
-        pieceColors.put(9, new Color(255, 165, 0));    // 小兵 - 橙色
-        pieceColors.put(10, new Color(255, 165, 0));   // 小兵 - 橙色
+        pieceColors.put(1, new Color(255, 0, 0));    // 红色
+        pieceColors.put(2, new Color(0, 255, 0));      // 绿色
+        pieceColors.put(3, new Color(0, 0, 255));   // 蓝色
+        pieceColors.put(4, new Color(255, 255, 0));   // 黄色
+        pieceColors.put(5, new Color(255, 0, 255));   // 品红色
+        pieceColors.put(6, new Color(0, 255, 255));   // 青色
+        pieceColors.put(7, new Color(128, 0, 128));   // 紫色
+        pieceColors.put(8, new Color(255, 165, 0));    // 橙色
+        pieceColors.put(9, new Color(0, 128, 0));    // 深绿色
+        pieceColors.put(10, new Color(165, 42, 42));   // 棕色
     }
     
     /**
@@ -132,7 +132,7 @@ public class GamePanel4 extends JPanel {
         updatePieceNameVisibility();
         
         // 重绘面板
-        clearImageCache();  // 清除图片缓存
+        GameImageManager.clearScaledImageCache();
         repaint();
         
         // 请求窗口焦点，确保键盘事件能够被正确捕获
@@ -184,29 +184,6 @@ public class GamePanel4 extends JPanel {
         return cellSize;
     }
 
-    /**
-     * 获取棋子图片，优先从缓存获取
-     * @param pieceId 棋子ID
-     * @return 对应的棋子图片
-     */
-    private Image getPieceImage(int pieceId) {
-        // 首先尝试从缓存获取
-        if (pieceImageCache.containsKey(pieceId)) {
-            return pieceImageCache.get(pieceId);
-        }
-        
-        // 从资源管理器获取图片
-        Image pieceImage = GameImageManager.getPieceImage(pieceId);
-        
-        // 如果图片存在，则缓存并返回
-        if (pieceImage != null) {
-            pieceImageCache.put(pieceId, pieceImage);
-            return pieceImage;
-        }
-        
-        return null;
-    }
-
     private void handleMouseClick(int mouseX, int mouseY) {
         if (gameLogic4.getGameState().isGameWon()) {
             return;
@@ -234,8 +211,8 @@ public class GamePanel4 extends JPanel {
             }
             // 无论是否成功选中，都重绘以更新可能的选择高亮
         } else {
-            String message = "It is invalid to click here.";
-            String title = "Error";
+            String message = "点击位置无效";
+            String title = "错误";
             JOptionPane.showMessageDialog(this, message, title, JOptionPane.INFORMATION_MESSAGE);
         }
     }
@@ -273,15 +250,13 @@ public class GamePanel4 extends JPanel {
         int actualOffsetY = offsetY + (getHeight() - 2 * offsetY - boardPixelHeight) / 2;
         
         // 绘制棋盘背景（如果有）
-        Image boardBackground = GameImageManager.getBoardImage();
+        Image boardBackground = GameImageManager.getBoardImage(boardPixelWidth, boardPixelHeight);
         if (boardBackground != null) {
             // 将背景图绘制在计算出的棋盘区域
-            Image scaledBoardBackground = GameImageManager.resizeImageToFit(boardBackground, boardPixelWidth, boardPixelHeight);
-            if (scaledBoardBackground != null) {
-                g2d.drawImage(scaledBoardBackground, actualOffsetX, actualOffsetY, boardPixelWidth, boardPixelHeight, this);
-            } else {
-                g2d.drawImage(boardBackground, actualOffsetX, actualOffsetY, boardPixelWidth, boardPixelHeight, this);
-            }
+            g2d.drawImage(boardBackground, actualOffsetX, actualOffsetY, boardPixelWidth, boardPixelHeight, this);
+        } else if (GameImageManager.getSkinMode() == 0) {
+            g2d.setColor(new Color(210, 180, 140)); // Fallback board color
+            g2d.fillRect(actualOffsetX, actualOffsetY, boardPixelWidth, boardPixelHeight);
         }
 
         // 绘制所有空格和网格线
@@ -292,18 +267,11 @@ public class GamePanel4 extends JPanel {
 
                 // 绘制空格（如果此处没有棋子）
                 if (board4.getBlockIdAt(col, row) == Board4.EMPTY_CELL_ID) {
-                    Image originalEmptyCellImage = GameImageManager.getEmptyCellImage();
-                    if (originalEmptyCellImage != null) {
-                        // 为每个空格图片进行缩放
-                        Image scaledEmptyCellImage = GameImageManager.resizeImageToFit(originalEmptyCellImage, cellSize, cellSize);
-                        if (scaledEmptyCellImage != null) {
-                            g2d.drawImage(scaledEmptyCellImage, x, y, cellSize, cellSize, this);
-                        } else { 
-                            g2d.drawImage(originalEmptyCellImage, x, y, cellSize, cellSize, this);
-                        }
-                    } else {
-                        // 如果没有找到图片，使用默认颜色填充
-                        g2d.setColor(Color.LIGHT_GRAY);
+                    Image emptyCellImg = GameImageManager.getEmptyCellImage(cellSize);
+                    if (emptyCellImg != null) {
+                        g2d.drawImage(emptyCellImg, x, y, cellSize, cellSize, this);
+                    } else if (GameImageManager.getSkinMode() == 0) { 
+                        g2d.setColor(new Color(200,200,200));
                         g2d.fillRect(x, y, cellSize, cellSize);
                     }
                 }
@@ -329,16 +297,16 @@ public class GamePanel4 extends JPanel {
             
             if (skinMode == 0) {
                 // 图片皮肤模式
-                Image originalPieceImage = getPieceImage(block4.getId());
+                Image finalImageToDraw = null;
+                BlockAnimator.AnimationState animState = blockAnimator.getAnimationState(block4.getId());
+                if (animState != null && animState.pieceImageForAnimation != null && blockAnimator.isBlockAnimating(block4.getId())) {
+                    finalImageToDraw = animState.pieceImageForAnimation;
+                } else {
+                    finalImageToDraw = GameImageManager.getScaledPieceImage(block4.getId(), blockPixelWidth, blockPixelHeight);
+                }
                 
-                if (originalPieceImage != null) {
-                    // 对每个棋子图片进行缩放
-                    Image scaledPieceImage = GameImageManager.resizeImageToFit(originalPieceImage, blockPixelWidth, blockPixelHeight);
-                    if (scaledPieceImage != null) {
-                        g2d.drawImage(scaledPieceImage, blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight, this);
-                    } else {
-                        g2d.drawImage(originalPieceImage, blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight, this);
-                    }
+                if (finalImageToDraw != null) {
+                    g2d.drawImage(finalImageToDraw, blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight, this);
                 } else {
                     // 如果没有找到图片，使用默认颜色填充
                     Color pieceColor = pieceColors.getOrDefault(block4.getId(), new Color(200, 200, 200));
@@ -407,8 +375,7 @@ public class GamePanel4 extends JPanel {
      * 清除图片缓存
      */
     public void clearImageCache() {
-        pieceImageCache.clear();
-        repaint();
+        GameImageManager.clearScaledImageCache();
     }
     
     /**
@@ -453,7 +420,7 @@ public class GamePanel4 extends JPanel {
     }
 
     private void drawFallbackPiece(Graphics2D g2d, Block4 block, int x, int y, int width, int height) {
-        Color pieceColor = pieceColors.getOrDefault(block.getId(), new Color(200, 200, 200));
+        Color pieceColor = pieceColors.getOrDefault(block.getId(), Color.GRAY);
         g2d.setColor(pieceColor);
         g2d.fillRect(x, y, width, height);
         g2d.setColor(Color.DARK_GRAY);
@@ -473,9 +440,12 @@ public class GamePanel4 extends JPanel {
 
     public void animateBlockMove(Block4 block, Direction4 direction) {
         if (blockAnimator == null || block == null || direction == null) return;
-        Image pieceImage = GameImageManager.getPieceImage(block.getId());
-        if (GameImageManager.getSkinMode() == 1) { 
-            pieceImage = null;
+        Image pieceImage = null;
+        if (GameImageManager.getSkinMode() == 0) { 
+            int cellSize = calculateCellSize();
+            int blockPixelWidth = block.getWidth() * cellSize;
+            int blockPixelHeight = block.getHeight() * cellSize;
+            pieceImage = GameImageManager.getScaledPieceImage(block.getId(), blockPixelWidth, blockPixelHeight);
         }
         blockAnimator.animateBlockMove(block, direction, pieceImage);
     }
@@ -495,5 +465,25 @@ public class GamePanel4 extends JPanel {
     public void cancelAnimations() { 
         if (blockAnimator != null) blockAnimator.cancelAnimations();
         repaint();
+    }
+
+    public int getCellSize() {
+        return calculateCellSize();
+    }
+
+    public int getActualOffsetX() {
+        Board4 board4 = gameLogic4.getGameState().getBoard();
+        if (board4 == null) return offsetX;
+        int cellSize = calculateCellSize();
+        int boardPixelWidth = board4.getWidth() * cellSize;
+        return offsetX + (getWidth() - 2 * offsetX - boardPixelWidth) / 2;
+    }
+
+    public int getActualOffsetY() {
+        Board4 board4 = gameLogic4.getGameState().getBoard();
+        if (board4 == null) return offsetY;
+        int cellSize = calculateCellSize();
+        int boardPixelHeight = board4.getHeight() * cellSize;
+        return offsetY + (getHeight() - 2 * offsetY - boardPixelHeight) / 2;
     }
 }
