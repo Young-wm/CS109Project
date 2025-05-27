@@ -81,7 +81,7 @@ public class GameImageManager {
         emptyCellImage = ensureImageLoaded(loadImage(EMPTY_CELL_IMAGE_NAME));
         
         for (int i = 1; i <= 10; i++) {
-            Image pieceImage = ensureImageLoaded(loadImage(PIECE_IMAGE_PREFIX + i + ".jpg"));
+            Image pieceImage = ensureImageLoaded(loadImage(PIECE_IMAGE_PREFIX + i + ".png"));
             if (pieceImage != null) {
                 originalPieceImageCache.put(i, pieceImage);
             }

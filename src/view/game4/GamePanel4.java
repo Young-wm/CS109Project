@@ -1,11 +1,13 @@
 package view.game4;
 
 import controller4.*;
+import view.game.BlockAnimator;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,6 +48,10 @@ public class GamePanel4 extends JPanel {
     // 皮肤切换按钮
     private JButton skinToggleButton = new JButton("切换皮肤");
     
+    private BlockAnimator blockAnimator;
+    private BufferedImage offscreenBuffer;
+    private Graphics2D offscreenGraphics;
+    
     public GamePanel4(GameLogic4 logic) {
         this.gameLogic4 = logic;
         //这里传入的就是GameFrame里面的gameLogic
@@ -69,9 +75,14 @@ public class GamePanel4 extends JPanel {
         add(skinToggleButton);
         skinToggleButton.addActionListener(e -> toggleSkin());
         
+        blockAnimator = new BlockAnimator(() -> repaint());
+        
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
+                if (isAnimating()) {
+                    return;
+                }
                 handleMouseClick(e.getX(), e.getY());
             }
             //补充：mousePressed指的是鼠标点击下去这个事件，mouseClicked指的是鼠标点下去再回弹的事件
@@ -82,6 +93,8 @@ public class GamePanel4 extends JPanel {
         addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentResized(java.awt.event.ComponentEvent evt) {
+                offscreenBuffer = null;
+                offscreenGraphics = null;
                 clearImageCache(); // 清空图片缓存
                 repaint(); // 重绘面板
                 
@@ -395,6 +408,7 @@ public class GamePanel4 extends JPanel {
      */
     public void clearImageCache() {
         pieceImageCache.clear();
+        repaint();
     }
     
     /**
@@ -436,5 +450,50 @@ public class GamePanel4 extends JPanel {
      */
     public void setMouseTrackWidth(float width) {
         // 空实现
+    }
+
+    private void drawFallbackPiece(Graphics2D g2d, Block4 block, int x, int y, int width, int height) {
+        Color pieceColor = pieceColors.getOrDefault(block.getId(), new Color(200, 200, 200));
+        g2d.setColor(pieceColor);
+        g2d.fillRect(x, y, width, height);
+        g2d.setColor(Color.DARK_GRAY);
+        g2d.drawRect(x, y, width - 1, height - 1);
+        if (showPieceNames) {
+            g2d.setColor(Color.WHITE);
+            String blockText = block.getName();
+            FontMetrics fm = g2d.getFontMetrics();
+            int stringWidth = fm.stringWidth(blockText);
+            if (stringWidth < width - 4) {
+                int textX = x + (width - stringWidth) / 2;
+                int textY = y + (height - fm.getHeight()) / 2 + fm.getAscent();
+                g2d.drawString(blockText, textX, textY);
+            }
+        }
+    }
+
+    public void animateBlockMove(Block4 block, Direction4 direction) {
+        if (blockAnimator == null || block == null || direction == null) return;
+        Image pieceImage = GameImageManager.getPieceImage(block.getId());
+        if (GameImageManager.getSkinMode() == 1) { 
+            pieceImage = null;
+        }
+        blockAnimator.animateBlockMove(block, direction, pieceImage);
+    }
+
+    public boolean isAnimating() {
+        return blockAnimator != null && blockAnimator.isAnimating();
+    }
+
+    public void setAnimationCompleteCallback(Runnable callback) {
+        if (blockAnimator != null) blockAnimator.setAnimationCompleteCallback(callback);
+    }
+
+    public BlockAnimator getBlockAnimator() {
+        return blockAnimator;
+    }
+
+    public void cancelAnimations() { 
+        if (blockAnimator != null) blockAnimator.cancelAnimations();
+        repaint();
     }
 }

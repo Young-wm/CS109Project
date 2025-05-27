@@ -39,6 +39,7 @@ public class GameFrame2 extends JFrame {
     private GamePanel2 gamePanel2;
     private ControlPanel2 controlPanel2;
     private StatusPanel2 statusPanel2;
+    private SkillAnimationPanel skillAnimationPanel; // 添加技能动画面板
     //这里的框架搭建预计在最底层的JFrame上面加三个具体Panel，一个是游戏界面的gamePanel，
     // 一个是上下左右按键和撤销重置按钮的controlPanel，最后一个是包含了步数和计时器的statePanel
 
@@ -63,6 +64,18 @@ public class GameFrame2 extends JFrame {
     private List<MoveRecord2> solutionMoves;
     private int currentMoveIndex;
 
+    // 技能动画文件路径
+    private static final String TELEPORT_ANIMATION_PATH = "src/view/game2/resources/teleport_animation.gif";
+    private static final String BOMB_ANIMATION_PATH = "src/view/game2/resources/bomb_animation.gif";
+    
+    // 音效文件路径
+    private static final String TELEPORT_SOUND_PATH = "src/view/game2/resources/teleport_sound.wav";
+    private static final String BOMB_SOUND_PATH = "src/view/game2/resources/bomb_sound.wav";
+    
+    // 炸弹目标高亮参数
+    private static final int HIGHLIGHT_DURATION = 1000; // 高亮持续时间(毫秒)
+    private static final Color HIGHLIGHT_COLOR = new Color(255, 0, 0, 150); // 半透明红色
+    private Timer highlightTimer; // 高亮效果计时器
 
     public GameFrame2() {
         gameLogic2 = new GameLogic2();
@@ -90,11 +103,46 @@ public class GameFrame2 extends JFrame {
         controlPanel2 = new ControlPanel2(this);//这里传入this是一个比较妙的点，如果忘记为什么这么写的，后面的controlPanel里面有具体讲解
         // 初始化各个面板
 
-        add(gamePanel2, BorderLayout.CENTER); // 游戏棋盘在中间
+        // 初始化技能动画面板
+        skillAnimationPanel = new SkillAnimationPanel();
+        skillAnimationPanel.setBounds(0, 0, 800, 600); // 设置一个初始大小，后续会自动调整
+
+        // 创建一个JLayeredPane来管理层次关系
+        JLayeredPane layeredPane = new JLayeredPane();
+        // layeredPane.setLayout(null); // JLayeredPane应该使用null布局而不是BorderLayout -- 移除这行，让JLayeredPane使用默认布局或由我们明确设置
+        // 为JLayeredPane设置一个布局管理器，例如BorderLayout，使其能够响应内部组件的preferredSize
+        // 或者，更简单的方式是，直接给layeredPane设置preferredSize
+
+        // 添加游戏面板到底层
+        // gamePanel2.setBounds(0, 0, 800, 600); // 移除固定大小设置，让preferredSize生效
+        layeredPane.add(gamePanel2, Integer.valueOf(JLayeredPane.DEFAULT_LAYER));
+        
+        // 添加技能动画面板到顶层
+        // skillAnimationPanel.setBounds(0, 0, 800, 600); // 移除固定大小设置
+        layeredPane.add(skillAnimationPanel, Integer.valueOf(JLayeredPane.POPUP_LAYER));
+        
+        // 设置layeredPane的preferredSize，使其与gamePanel2的preferredSize一致
+        // 这样pack()方法就能正确计算窗口大小
+        Dimension gamePanelPreferredSize = gamePanel2.getPreferredSize();
+        layeredPane.setPreferredSize(gamePanelPreferredSize);
+
+        // 添加层次面板到窗口中央
+        add(layeredPane, BorderLayout.CENTER);
         add(statusPanel2, BorderLayout.NORTH);  // 状态信息在顶部
         add(controlPanel2, BorderLayout.SOUTH); // 控制按钮在底部
         //排版布局准备将整个游戏放在正中间，然后把控制按钮放在底部，状态信息放在顶部
 
+        // 添加组件监听器以调整面板大小
+        layeredPane.addComponentListener(new java.awt.event.ComponentAdapter() {
+            public void componentResized(java.awt.event.ComponentEvent evt) {
+                // 调整游戏面板和动画面板的大小以适应layeredPane
+                // 当layeredPane大小改变时， gamePanel2 和 skillAnimationPanel 也需要调整大小
+                // GamePanel2本身会根据其父容器（layeredPane）的大小通过calculateCellSize动态调整棋盘绘制
+                // SkillAnimationPanel也应该覆盖整个layeredPane
+                gamePanel2.setBounds(0, 0, layeredPane.getWidth(), layeredPane.getHeight());
+                skillAnimationPanel.setBounds(0, 0, layeredPane.getWidth(), layeredPane.getHeight());
+            }
+        });
 
         // 初始化并启动游戏计时器
         setupGameTimer();
@@ -201,44 +249,39 @@ public class GameFrame2 extends JFrame {
                 }
                 
                 if (moveDirection != null) {
-                    // 获取当前选中的棋子
+                    final Direction2 finalMoveDirection = moveDirection;
                     Block2 selectedBlock = gameLogic2.getSelectedBlock();
-                    if (selectedBlock != null) {
-                        // 检查是否可以移动
-                        if (gameLogic2.canMove(selectedBlock, moveDirection.getDx(), moveDirection.getDy())) {
-                            // 开始动画
-                            gamePanel2.animateBlockMove(selectedBlock, moveDirection);
+                    if (selectedBlock != null && gameLogic2.canMove(selectedBlock, finalMoveDirection.getDx(), finalMoveDirection.getDy())) {
+                        // 开始动画
+                        gamePanel2.animateBlockMove(selectedBlock, finalMoveDirection);
+                        
+                        // 设置动画完成后的回调
+                        gamePanel2.setAnimationCompleteCallback(() -> {
+                            // 动画完成后执行实际的棋子移动
+                            boolean success = gameLogic2.moveSelectedBlock(finalMoveDirection);
                             
-                            // 设置动画完成后的回调
-                            final Direction2 finalMoveDirection = moveDirection;
-                            gamePanel2.setAnimationCompleteCallback(() -> {
-                                // 动画完成后执行实际的棋子移动
-                                boolean success = gameLogic2.moveSelectedBlock(finalMoveDirection);
-                                
-                                // 在模型更新后，通知BlockAnimator可以清理已完成的动画状态
-                                if (gamePanel2.getBlockAnimator() != null) {
-                                    gamePanel2.getBlockAnimator().finalizeAllPendingAnimations();
-                                }
-                                
-                                if (success) {
-                                    // 播放棋子移动音效
-                                    view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
-                                    refreshGameView();
-                                    checkAndShowWinDialog();
-                                } else {
-                                    // 如果移动不成功（理论上在canMove检查后不应发生）
-                                    // 也应重绘以确保视图与模型一致
-                                    gamePanel2.repaint();
-                                }
-                            });
-                            moved = true;
-                        }
+                            // 在模型更新后，通知BlockAnimator可以清理已完成的动画状态
+                            if (gamePanel2.getBlockAnimator() != null) {
+                                gamePanel2.getBlockAnimator().finalizeAllPendingAnimations();
+                            }
+                            
+                            if (success) {
+                                // 播放棋子移动音效 (确保AudioManager已初始化并有此方法)
+                                // view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
+                                refreshGameView();
+                                checkAndShowWinDialog();
+                            } else {
+                                // 如果移动不成功（理论上在canMove检查后不应发生）
+                                // 也应重绘以确保视图与模型一致。
+                                gamePanel2.repaint();
+                            }
+                        });
+                        
+                        moved = true; // 标记已开始移动/动画
                     }
                 }
                 
-                if (!moved) {
-                    // 如果没有移动，可以考虑添加一些反馈（如音效或提示）
-                }
+                // 不需要在这里做if(moved)的判断和刷新，因为动画完成后回调会处理刷新
             }
         });
     }
@@ -435,15 +478,29 @@ public class GameFrame2 extends JFrame {
             return;
         }
         gamePanel2.cancelAnimations(); // 确保没有棋子动画在进行
-        gameLogic2.teleportBoard();
-        refreshGameView();
-        if (gameTimer != null) { // 重启计时器
-            gameTimer.stop();
-            if (!gameLogic2.getGameState().isGameWon()) {
-                gameTimer.start();
+        
+        // 禁用控制面板按钮，防止动画播放期间再次点击
+        controlPanel2.setAllButtonsEnabled(false);
+        
+        // 播放大挪移动画
+        skillAnimationPanel.setOnAnimationEnd(() -> {
+            // 动画结束后执行实际的大挪移逻辑
+            gameLogic2.teleportBoard();
+            refreshGameView();
+            if (gameTimer != null) { // 重启计时器
+                gameTimer.stop();
+                if (!gameLogic2.getGameState().isGameWon()) {
+                    gameTimer.start();
+                }
             }
-        }
-        JOptionPane.showMessageDialog(this, "棋盘已使用\"大挪移\"！", "大挪移", JOptionPane.INFORMATION_MESSAGE);
+            // 重新启用控制面板按钮
+            controlPanel2.setAllButtonsEnabled(true);
+            // 播放音效
+            playSkillSound(TELEPORT_SOUND_PATH);
+        });
+        
+        // 开始播放动画
+        skillAnimationPanel.playAnimation(TELEPORT_ANIMATION_PATH);
     }
 
 
@@ -459,15 +516,141 @@ public class GameFrame2 extends JFrame {
             JOptionPane.showMessageDialog(this, "\"炸弹\"目标（兵1）已不存在！", "炸弹", JOptionPane.WARNING_MESSAGE);
             return;
         }
+        
+        // 获取炸弹目标位置，用于高亮显示
+        Block2 targetBlock = gameLogic2.getGameState().getBoard().getBlockById(GameLogic2.BOMB_TARGET_BLOCK_ID);
+        
+        // 禁用控制面板按钮，防止动画播放期间再次点击
+        controlPanel2.setAllButtonsEnabled(false);
+        
+        // 播放炸弹动画
+        skillAnimationPanel.setOnAnimationEnd(() -> {
+            // 先高亮显示目标棋子
+            highlightBombTarget(targetBlock);
+            
+            // 播放炸弹音效
+            playSkillSound(BOMB_SOUND_PATH);
+            
+            // 延迟一段时间后执行实际的炸弹逻辑，让玩家能看到高亮效果
+            Timer delayTimer = new Timer(HIGHLIGHT_DURATION, e -> {
+                boolean success = gameLogic2.useBomb();
+                if (success) {
+                    refreshGameView();
+                    checkAndShowWinDialog(); // 检查使用炸弹后是否获胜
+                }
+                // 重新启用控制面板按钮
+                controlPanel2.setAllButtonsEnabled(true);
+            });
+            delayTimer.setRepeats(false);
+            delayTimer.start();
+        });
+        
+        // 开始播放动画
+        skillAnimationPanel.playAnimation(BOMB_ANIMATION_PATH);
+    }
+    
+    /**
+     * 高亮显示炸弹目标棋子
+     * @param targetBlock 要高亮的目标棋子
+     */
+    private void highlightBombTarget(Block2 targetBlock) {
+        if (targetBlock == null) return;
+        
+        // 创建一个半透明的红色覆盖层
+        JPanel highlightPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setColor(HIGHLIGHT_COLOR);
+                
+                // 计算目标棋子在面板上的位置和大小
+                int cellSize = gamePanel2.getCellSize();
+                // 使用GamePanel2提供的实际偏移量进行精确定位
+                int actualOffsetX = gamePanel2.getActualOffsetX();
+                int actualOffsetY = gamePanel2.getActualOffsetY();
+                
+                int x = actualOffsetX + targetBlock.getX() * cellSize;
+                int y = actualOffsetY + targetBlock.getY() * cellSize;
+                int width = targetBlock.getWidth() * cellSize;
+                int height = targetBlock.getHeight() * cellSize;
+                
+                // 绘制高亮矩形
+                g2d.fillRect(x, y, width, height);
+                g2d.dispose();
+            }
+        };
+        
+        // 设置高亮面板属性
+        highlightPanel.setOpaque(false);
+        // 高亮面板需要覆盖整个游戏面板区域，而不是整个layeredPane
+        highlightPanel.setBounds(0, 0, gamePanel2.getWidth(), gamePanel2.getHeight());
+        
+        // 将高亮面板添加到gamePanel2的父容器（即layeredPane）的更高层
+        // 注意：这里高亮面板是直接添加到layeredPane，其坐标是相对于layeredPane的。
+        // 而highlightPanel内部的paintComponent绘制的矩形坐标是相对于highlightPanel自身的。
+        // 我们需要确保highlightPanel的大小和位置与gamePanel2一致，这样内部绘制逻辑才能正确。
+        // 已经通过 setBounds(0,0, gamePanel2.getWidth(), gamePanel2.getHeight()) 设置了，
+        // 但因为layeredPane是null布局，所以添加子组件时，子组件的位置和大小需要明确指定。
+        // 此处高亮面板是作为一个覆盖层添加到layeredPane，并且其绘制内容是基于gamePanel2的内部坐标。
 
-        boolean success = gameLogic2.useBomb();
-        if (success) {
-            refreshGameView();
-            JOptionPane.showMessageDialog(this, "\"炸弹\"已使用！兵1被移除。", "炸弹", JOptionPane.INFORMATION_MESSAGE);
-            checkAndShowWinDialog(); // 检查使用炸弹后是否获胜
+        // 将高亮面板添加到layeredPane的最顶层
+        Container parent = gamePanel2.getParent();
+        if (parent instanceof JLayeredPane) {
+            JLayeredPane layeredPane = (JLayeredPane) parent;
+            // 先移除旧的（如果有），避免重复添加
+            for (Component comp : layeredPane.getComponentsInLayer(JLayeredPane.DRAG_LAYER)) {
+                if (comp.getClass().isAnonymousClass() && comp instanceof JPanel) { // 简易判断是否是之前的高亮面板
+                    layeredPane.remove(comp);
+                }
+            }
+            layeredPane.add(highlightPanel, Integer.valueOf(JLayeredPane.DRAG_LAYER)); 
+            highlightPanel.setBounds(gamePanel2.getBounds()); // <--- 关键：确保高亮面板与游戏面板完全重叠
+            layeredPane.repaint(); // 重绘 layeredPane 以显示高亮
+        } else {
+            System.err.println("错误：GamePanel2的父容器不是JLayeredPane，无法添加高亮层。");
+            return; // 如果父容器不对，无法继续
+        }
+        
+        // 设置计时器在一段时间后移除高亮效果
+        if (highlightTimer != null && highlightTimer.isRunning()) {
+            highlightTimer.stop();
+        }
+        
+        highlightTimer = new Timer(HIGHLIGHT_DURATION, e -> {
+            // 移除高亮面板
+            if (parent instanceof JLayeredPane) {
+                JLayeredPane layeredPane = (JLayeredPane) parent;
+                layeredPane.remove(highlightPanel);
+                layeredPane.repaint();
+            }
+        });
+        highlightTimer.setRepeats(false);
+        highlightTimer.start();
+    }
+    
+    /**
+     * 播放技能音效
+     * @param soundPath 音效文件路径
+     */
+    private void playSkillSound(String soundPath) {
+        try {
+            // 检查文件是否存在
+            File soundFile = new File(soundPath);
+            if (soundFile.exists()) {
+                // 使用AudioManager播放自定义音效
+                view.audio.AudioManager.getInstance().playPieceMoveSound(soundPath);
+            } else {
+                // 如果文件不存在，播放默认音效
+                view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
+                System.err.println("技能音效文件不存在: " + soundPath + "，使用默认音效替代");
+            }
+        } catch (Exception e) {
+            // 出错时播放默认音效
+            view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
+            System.err.println("播放技能音效时出错: " + e.getMessage());
         }
     }
-
 
     public GamePanel2 getGamePanel() {
         return this.gamePanel2;
@@ -628,6 +811,13 @@ public class GameFrame2 extends JFrame {
         }
         if (gameTimer != null) {
             gameTimer.stop();
+        }
+        if (highlightTimer != null && highlightTimer.isRunning()) {
+            highlightTimer.stop();
+        }
+        // 停止技能动画
+        if (skillAnimationPanel != null) {
+            skillAnimationPanel.stopAnimation();
         }
         super.dispose();
     }

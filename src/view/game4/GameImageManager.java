@@ -54,7 +54,7 @@ public class GameImageManager {
         
         // 预加载棋子图片（ID 1-10）
         for (int i = 1; i <= 10; i++) {
-            Image pieceImage = loadImage(PIECE_IMAGE_PREFIX + i + ".jpg");
+            Image pieceImage = loadImage(PIECE_IMAGE_PREFIX + i + ".png");
             if (pieceImage != null) {
                 pieceImageCache.put(i, pieceImage);
             }

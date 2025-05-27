@@ -72,7 +72,7 @@ public class GameLogic4 {
     //这个方法实现的是块的移动，如果可以正常移动会返回true，并且把块移动过去，然后把步数增加1，再记录这次移动
     //另外，注意这个方法里面有一个selectedBlock的选中，所以这个方法再后面的使用的时候需要先用一次selectedBlockAt()这个方法，更新一下selectedBlock
 
-    private boolean canMove(Block4 block4, int dx, int dy) {
+    public boolean canMove(Block4 block4, int dx, int dy) {
         if (block4 == null || (dx == 0 && dy == 0)) {
             return false;
         }

@@ -28,10 +28,14 @@ public class TextAnimator {
     private boolean isAnimating = false;
     // 动画完成回调
     private Runnable onCompleteCallback;
+    // HTML前缀和后缀
+    private String htmlPrefix = "";
+    private String htmlSuffix = "";
+    // 实际需要动画显示的内容
+    private String contentText = "";
     
     /**
      * 构造函数
-     * @param textComponent 目标文本组件
      */
     public TextAnimator(JComponent textComponent) {
         this(textComponent, DEFAULT_CHARS_PER_SECOND);
@@ -39,8 +43,6 @@ public class TextAnimator {
     
     /**
      * 构造函数
-     * @param textComponent 目标文本组件
-     * @param charsPerSecond 每秒输出字符数
      */
     public TextAnimator(JComponent textComponent, int charsPerSecond) {
         this.textComponent = textComponent;
@@ -57,7 +59,6 @@ public class TextAnimator {
     
     /**
      * 开始文本动画
-     * @param text 要显示的完整文本
      */
     public void animateText(String text) {
         animateText(text, null);
@@ -65,8 +66,6 @@ public class TextAnimator {
     
     /**
      * 开始文本动画
-     * @param text 要显示的完整文本
-     * @param onComplete 动画完成后的回调
      */
     public void animateText(String text, Runnable onComplete) {
         // 如果正在播放动画，先停止
@@ -78,12 +77,15 @@ public class TextAnimator {
         
         // 如果文本为空，直接返回
         if (text == null || text.isEmpty()) {
-            updateComponentText("");
+            updateComponentText();
             if (onCompleteCallback != null) {
                 onCompleteCallback.run();
             }
             return;
         }
+        
+        // 处理HTML标签
+        processHtmlText(text);
         
         // 计算每个字符的延迟时间（毫秒）
         int delayPerChar = 1000 / charsPerSecond;
@@ -97,10 +99,10 @@ public class TextAnimator {
                 currentIndex++;
                 
                 // 更新文本
-                updateComponentText(targetText.substring(0, currentIndex));
+                updateComponentText();
                 
                 // 如果已经显示完整文本，停止动画
-                if (currentIndex >= targetText.length()) {
+                if (currentIndex >= contentText.length()) {
                     stopAnimation();
                     if (onCompleteCallback != null) {
                         onCompleteCallback.run();
@@ -110,8 +112,54 @@ public class TextAnimator {
         });
         
         // 开始动画
-        updateComponentText("");
+        updateComponentText();
         animationTimer.start();
+    }
+    
+    /**
+     * 处理HTML文本，提取前缀、内容和后缀
+     */
+    private void processHtmlText(String text) {
+        // 检查是否是HTML格式
+        if (text.toLowerCase().startsWith("<html")) {
+            // 查找HTML内容的开始和结束位置
+            int bodyStart = text.toLowerCase().indexOf("<body");
+            int bodyEnd = text.toLowerCase().indexOf("</body>");
+            
+            if (bodyStart >= 0 && bodyEnd > bodyStart) {
+                // 找到body标签的结束位置
+                int contentStart = text.indexOf('>', bodyStart);
+                if (contentStart >= 0) {
+                    contentStart++; // 移到>之后
+                    
+                    // 提取HTML前缀、内容和后缀
+                    htmlPrefix = text.substring(0, contentStart);
+                    contentText = text.substring(contentStart, bodyEnd);
+                    htmlSuffix = text.substring(bodyEnd);
+                    return;
+                }
+            }
+            
+            // 如果没有找到body标签，尝试查找html标签
+            int htmlEndTag = text.toLowerCase().indexOf("</html>");
+            if (htmlEndTag > 0) {
+                int contentStart = text.indexOf('>', 0);
+                if (contentStart >= 0) {
+                    contentStart++; // 移到>之后
+                    
+                    // 提取HTML前缀、内容和后缀
+                    htmlPrefix = text.substring(0, contentStart);
+                    contentText = text.substring(contentStart, htmlEndTag);
+                    htmlSuffix = text.substring(htmlEndTag);
+                    return;
+                }
+            }
+        }
+        
+        // 如果不是HTML格式或无法解析，直接使用原文本
+        htmlPrefix = "";
+        contentText = text;
+        htmlSuffix = "";
     }
     
     /**
@@ -130,7 +178,19 @@ public class TextAnimator {
     public void skipAnimation() {
         if (isAnimating && targetText != null) {
             stopAnimation();
-            updateComponentText(targetText);
+            // 直接显示完整文本
+            if (textComponent instanceof JLabel) {
+                ((JLabel) textComponent).setText(targetText);
+            } else if (textComponent instanceof JTextArea) {
+                ((JTextArea) textComponent).setText(targetText);
+            } else if (textComponent instanceof JTextField) {
+                ((JTextField) textComponent).setText(targetText);
+            } else if (textComponent instanceof JTextPane) {
+                ((JTextPane) textComponent).setText(targetText);
+            } else if (textComponent instanceof JEditorPane) {
+                ((JEditorPane) textComponent).setText(targetText);
+            }
+            
             if (onCompleteCallback != null) {
                 onCompleteCallback.run();
             }
@@ -139,20 +199,29 @@ public class TextAnimator {
     
     /**
      * 更新组件文本
-     * @param text 文本
      */
-    private void updateComponentText(String text) {
+    private void updateComponentText() {
+        // 构建当前应该显示的文本
+        String displayText;
+        if (htmlPrefix.isEmpty() && htmlSuffix.isEmpty()) {
+            // 非HTML文本
+            displayText = contentText.substring(0, Math.min(currentIndex, contentText.length()));
+        } else {
+            // HTML文本
+            displayText = htmlPrefix + contentText.substring(0, Math.min(currentIndex, contentText.length())) + htmlSuffix;
+        }
+        
         // 根据组件类型更新文本
         if (textComponent instanceof JLabel) {
-            ((JLabel) textComponent).setText(text);
+            ((JLabel) textComponent).setText(displayText);
         } else if (textComponent instanceof JTextArea) {
-            ((JTextArea) textComponent).setText(text);
+            ((JTextArea) textComponent).setText(displayText);
         } else if (textComponent instanceof JTextField) {
-            ((JTextField) textComponent).setText(text);
+            ((JTextField) textComponent).setText(displayText);
         } else if (textComponent instanceof JTextPane) {
-            ((JTextPane) textComponent).setText(text);
+            ((JTextPane) textComponent).setText(displayText);
         } else if (textComponent instanceof JEditorPane) {
-            ((JEditorPane) textComponent).setText(text);
+            ((JEditorPane) textComponent).setText(displayText);
         } else {
             System.err.println("不支持的组件类型: " + textComponent.getClass().getName());
         }
@@ -160,7 +229,6 @@ public class TextAnimator {
     
     /**
      * 设置每秒输出字符数
-     * @param charsPerSecond 每秒字符数
      */
     public void setCharsPerSecond(int charsPerSecond) {
         this.charsPerSecond = Math.max(1, charsPerSecond); // 确保至少每秒输出1个字符
@@ -174,7 +242,6 @@ public class TextAnimator {
     
     /**
      * 获取当前每秒输出字符数
-     * @return 每秒字符数
      */
     public int getCharsPerSecond() {
         return charsPerSecond;
@@ -182,7 +249,6 @@ public class TextAnimator {
     
     /**
      * 检查动画是否正在播放
-     * @return 是否正在播放
      */
     public boolean isAnimating() {
         return isAnimating;

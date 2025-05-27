@@ -85,6 +85,10 @@ public class GamePanel2 extends JPanel {
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
+                // 添加动画检查
+                if (isAnimating()) {
+                    return;
+                }
                 handleMouseClick(e.getX(), e.getY());
             }
             //补充：mousePressed指的是鼠标点击下去这个事件，mouseClicked指的是鼠标点下去再回弹的事件
@@ -258,133 +262,107 @@ public class GamePanel2 extends JPanel {
         if (board2 == null){
             return;
         }
-        
-        // 动态计算单元格大小
-        int cellSize = calculateCellSize();
-        
-        // 计算棋盘实际绘制区域，使其在面板中居中
-        int boardPixelWidth = board2.getWidth() * cellSize;
-        int boardPixelHeight = board2.getHeight() * cellSize;
-        int actualOffsetX = offsetX + (getWidth() - 2 * offsetX - boardPixelWidth) / 2;
-        int actualOffsetY = offsetY + (getHeight() - 2 * offsetY - boardPixelHeight) / 2;
-        
-        // 如果缓冲区不存在或尺寸不匹配，创建新的缓冲区
-        if (offscreenBuffer == null || offscreenBuffer.getWidth() != getWidth() || 
-            offscreenBuffer.getHeight() != getHeight()) {
+
+        // 使用双缓冲绘制，防止闪烁
+        if (offscreenBuffer == null || offscreenBuffer.getWidth() != getWidth() || offscreenBuffer.getHeight() != getHeight()) {
             offscreenBuffer = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
+            if (offscreenGraphics != null) {
+                offscreenGraphics.dispose(); // 释放旧的图形上下文
+            }
             offscreenGraphics = offscreenBuffer.createGraphics();
-            
-            // 设置抗锯齿和渲染提示
+            // 开启抗锯齿
             offscreenGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            offscreenGraphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
             offscreenGraphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
         }
-        
-        // 清空缓冲区背景
-        offscreenGraphics.setColor(getBackground());
+
+        // 清空缓冲区背景（透明）
+        offscreenGraphics.setComposite(AlphaComposite.Clear);
         offscreenGraphics.fillRect(0, 0, getWidth(), getHeight());
-        
-        // 绘制棋盘背景（如果有）
-        Image boardBackground = GameImageManager.getBoardImage(boardPixelWidth, boardPixelHeight);
-        if (boardBackground != null) {
-            offscreenGraphics.drawImage(boardBackground, actualOffsetX, actualOffsetY, boardPixelWidth, boardPixelHeight, this);
+        offscreenGraphics.setComposite(AlphaComposite.SrcOver);
+
+        // 绘制棋盘背景（如果GameImageManager提供）
+        Image boardImage = GameImageManager.getBoardImage();
+        if (boardImage != null) {
+            offscreenGraphics.drawImage(boardImage, 0, 0, getWidth(), getHeight(), this);
         } else {
-            offscreenGraphics.setColor(Color.LIGHT_GRAY); // 画一个默认背景
-            offscreenGraphics.fillRect(actualOffsetX, actualOffsetY, boardPixelWidth, boardPixelHeight);
+            // 如果没有棋盘背景图片，绘制一个简单的颜色背景
+            offscreenGraphics.setColor(new Color(230, 230, 230)); // 淡灰色背景
+            offscreenGraphics.fillRect(0, 0, getWidth(), getHeight());
         }
+        
+        // 动态计算单元格大小和偏移量
+        int cellSize = calculateCellSize();
+        int boardPixelWidth = board2.getWidth() * cellSize;
+        int boardPixelHeight = board2.getHeight() * cellSize;
+        
+        // 使棋盘在面板中居中绘制
+        int actualOffsetX = offsetX + (getWidth() - 2 * offsetX - boardPixelWidth) / 2;
+        int actualOffsetY = offsetY + (getHeight() - 2 * offsetY - boardPixelHeight) / 2;
 
-        // 绘制所有空格和网格线
-        for (int row = 0; row < board2.getHeight(); row++) {
-            for (int col = 0; col < board2.getWidth(); col++) {
-                int x = actualOffsetX + col * cellSize;
-                int y = actualOffsetY + row * cellSize;
-
-                // 绘制空格（如果此处没有棋子）
-                if (board2.getBlockIdAt(col, row) == Board2.EMPTY_CELL_ID) {
-                    Image emptyCellImg = GameImageManager.getEmptyCellImage(cellSize);
-                    if (emptyCellImg != null) {
-                        offscreenGraphics.drawImage(emptyCellImg, x, y, cellSize, cellSize, this);
-                    } else {
-                        offscreenGraphics.setColor(new Color(200,200,200)); // 默认空格颜色
-                        offscreenGraphics.fillRect(x, y, cellSize, cellSize);
-                    }
-                }
-
-                // 绘制网格线（如果需要）
-                if (showGridLines) {
-                    offscreenGraphics.setColor(gridColor);
-                    offscreenGraphics.drawRect(x, y, cellSize, cellSize);
-                }
+        // 绘制网格线 (如果启用)
+        if (showGridLines) {
+            offscreenGraphics.setColor(gridColor);
+            for (int i = 0; i <= board2.getHeight(); i++) { // 横线
+                offscreenGraphics.drawLine(actualOffsetX, actualOffsetY + i * cellSize, actualOffsetX + boardPixelWidth, actualOffsetY + i * cellSize);
+            }
+            for (int i = 0; i <= board2.getWidth(); i++) { // 竖线
+                offscreenGraphics.drawLine(actualOffsetX + i * cellSize, actualOffsetY, actualOffsetX + i * cellSize, actualOffsetY + boardPixelHeight);
             }
         }
 
-        // 绘制所有棋子
-        Map<Integer, Block2> allBlocks = board2.getBlocksCopy();
-        for (Block2 block : allBlocks.values()) {
-            // 获取棋子的动画位置和大小
-            Rectangle blockBounds = blockAnimator.getAnimatedBlockBounds(
-                block, cellSize, actualOffsetX, actualOffsetY);
-            
-            if (blockBounds == null) continue;
-            
-            int blockPixelX = blockBounds.x;
-            int blockPixelY = blockBounds.y;
-            int blockPixelWidth = blockBounds.width;
-            int blockPixelHeight = blockBounds.height;
+        // 绘制棋子
+        if (board2.getBlocksCopy() != null && board2.getBlocksCopy().values() != null) {
+            for (Block2 block : board2.getBlocksCopy().values()) { // Iterating over values of the map
+                if (block == null) continue;
 
-            // 获取当前皮肤模式
-            int skinMode = GameImageManager.getSkinMode();
-            
-            Image imageToDraw = null;
-
-            // 尝试从AnimationState获取预取的动画专用图像
-            BlockAnimator.AnimationState animState = blockAnimator.getAnimationState(block.getId());
-            if (animState != null && animState.pieceImageForAnimation != null && blockAnimator.isBlockAnimating(block.getId())) {
-                imageToDraw = animState.pieceImageForAnimation;
-            }
-            
-            if (skinMode == 0) {
-                if (imageToDraw == null) { // 如果没有预取的动画图像，或者不是在动画中，则正常获取
-                    imageToDraw = getPieceImage(block.getId());
-                    if (imageToDraw != null) {
-                        // 缩放图片以适应当前单元格大小
-                        imageToDraw = imageToDraw.getScaledInstance(blockPixelWidth, blockPixelHeight, Image.SCALE_SMOOTH);
-                    }
+                // 获取动画计算后的棋子边界
+                Rectangle blockBounds = blockAnimator.getAnimatedBlockBounds(block, cellSize, actualOffsetX, actualOffsetY);
+                if (blockBounds == null || blockBounds.width <= 0 || blockBounds.height <= 0) { // 增加对无效宽高的检查
+                    // 如果获取失败或尺寸无效，则使用静态位置和默认大小
+                    blockBounds = new Rectangle(
+                        actualOffsetX + block.getX() * cellSize,
+                        actualOffsetY + block.getY() * cellSize,
+                        block.getWidth() * cellSize,
+                        block.getHeight() * cellSize
+                    );
+                    if (blockBounds.width <= 0 || blockBounds.height <= 0) continue; // 再次检查，如果还是无效则跳过此棋子
                 }
 
-                if (imageToDraw != null) {
-                    offscreenGraphics.drawImage(imageToDraw, blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight, this);
+                Image pieceImage = null;
+                Image finalImageToDraw = null;
+
+                // 尝试从BlockAnimator的AnimationState获取预取的图像 (如果正在动画中且有预取)
+                BlockAnimator.AnimationState animState = blockAnimator.getAnimationState(block.getId());
+                if (animState != null && animState.pieceImageForAnimation != null && blockAnimator.isBlockAnimating(block.getId())) {
+                    // 如果动画状态中有预取图像，并且该图像已经适应了动画的某种特定尺寸需求，则直接使用
+                    // 假设 animState.pieceImageForAnimation 已经是正确缩放的，或者 BlockAnimator 内部会处理
+                    finalImageToDraw = animState.pieceImageForAnimation;
                 } else {
-                    // 图片加载失败或尺寸无效，使用纯色填充作为后备
-                    drawFallbackPiece(offscreenGraphics, block, blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight);
+                    // 否则，正常从GameImageManager获取原始图片
+                    pieceImage = GameImageManager.getPieceImage(block.getId());
+                    if (pieceImage != null) {
+                        // 手动缩放图片以适应当前 blockBounds 的尺寸
+                        finalImageToDraw = pieceImage.getScaledInstance(blockBounds.width, blockBounds.height, Image.SCALE_SMOOTH);
+                    }
                 }
-            } else {
-                // 纯色皮肤模式
-                drawFallbackPiece(offscreenGraphics, block, blockPixelX, blockPixelY, blockPixelWidth, blockPixelHeight);
-            }
-        }
 
-        // 高亮显示选中的棋子
-        Block2 selected = gameLogic2.getSelectedBlock();
-        if (selected != null) {
-            // 获取选中棋子的动画位置和大小
-            Rectangle selBounds = blockAnimator.getAnimatedBlockBounds(
-                selected, cellSize, actualOffsetX, actualOffsetY);
-            
-            if (selBounds != null) {
-                int selX = selBounds.x;
-                int selY = selBounds.y;
-                int selWidth = selBounds.width;
-                int selHeight = selBounds.height;
-    
-                offscreenGraphics.setColor(selectedBlockBorderColor);
-                offscreenGraphics.setStroke(new BasicStroke(3)); // 边框粗细可以考虑随cellSize调整
-                offscreenGraphics.drawRect(selX + 1, selY + 1, selWidth - 2, selHeight - 2);
-                offscreenGraphics.setStroke(new BasicStroke(1));
+                if (finalImageToDraw != null) {
+                    offscreenGraphics.drawImage(finalImageToDraw, blockBounds.x, blockBounds.y, blockBounds.width, blockBounds.height, this);
+                } else {
+                    // 图片缺失或纯色模式下的回退绘制逻辑
+                    drawFallbackPiece(offscreenGraphics, block, blockBounds.x, blockBounds.y, blockBounds.width, blockBounds.height);
+                }
+
+                // 绘制选中边框
+                if (block.equals(gameLogic2.getSelectedBlock())) {
+                    offscreenGraphics.setColor(selectedBlockBorderColor);
+                    offscreenGraphics.setStroke(new BasicStroke(3)); // 设置边框粗细
+                    offscreenGraphics.drawRect(blockBounds.x, blockBounds.y, blockBounds.width, blockBounds.height);
+                }
             }
         }
         
-        // 完成所有绘制后，将缓冲区内容一次性绘制到屏幕
+        // 将离屏缓冲区内容绘制到屏幕
         g.drawImage(offscreenBuffer, 0, 0, this);
     }
     
@@ -403,13 +381,11 @@ public class GamePanel2 extends JPanel {
             String blockText = block.getName();
             FontMetrics fm = g2d.getFontMetrics();
             int stringWidth = fm.stringWidth(blockText);
-            // 考虑文本可能比棋子宽的情况，避免裁剪
-            if (stringWidth > width - 4) { // 留一点边距
-                 // 可以选择缩小字体或截断文本，这里简单地不绘制如果太宽
-            } else {
+            
+            if (stringWidth < width - 4) {
                 int textX = x + (width - stringWidth) / 2;
                 int textY = y + (height - fm.getHeight()) / 2 + fm.getAscent();
-                 g2d.drawString(blockText, textX, textY);
+                g2d.drawString(blockText, textX, textY);
             }
         }
     }
@@ -477,24 +453,22 @@ public class GamePanel2 extends JPanel {
      * @param direction 移动方向
      */
     public void animateBlockMove(Block2 block, Direction2 direction) {
-        if (block != null && direction != null) {
-            // 在动画开始前，为该棋子预取一个固定尺寸的图像
-            int cellSize = calculateCellSize(); // 获取当前单元格大小
-            int blockPixelWidth = block.getWidth() * cellSize;
-            int blockPixelHeight = block.getHeight() * cellSize;
-            
-            Image animationImage = null;
-            if (GameImageManager.getSkinMode() == 0) { // 仅在图片模式下预取
-                animationImage = getPieceImage(block.getId());
-                if (animationImage != null) {
-                    animationImage = animationImage.getScaledInstance(blockPixelWidth, blockPixelHeight, Image.SCALE_SMOOTH);
-                }
-            }
-            // 如果animationImage为null (例如纯色模式，或图片加载失败)，BlockAnimator的AnimationState中对应图像将为null
-            // paintComponent中绘制时会进行判断
-
-            blockAnimator.animateBlockMove(block, direction, animationImage);
+        if (blockAnimator == null || block == null || direction == null) {
+            return;
         }
+        // 从GameImageManager获取当前棋子应该显示的图片（GameImageManager应处理缩放）
+        // 为了动画，我们可能需要原始未缩放的图像，或者一个适合动画初始状态的尺寸
+        // 暂时我们假设GameImageManager能提供一个合适的图像，或者BlockAnimator内部会处理
+        Image pieceImage = GameImageManager.getPieceImage(block.getId()); // 获取基础图片
+
+        // 如果用纯色，可以传递null或者一个预渲染的纯色块图像
+        if (GameImageManager.getSkinMode() == 1) { // 1 代表纯色模式
+            // 对于纯色模式，可以创建一个临时的纯色图像传递给动画器，或者让动画器根据ID处理
+            // 为简化，这里可以传null，让BlockAnimator的getAnimatedBlockBounds在绘制时再决定颜色
+            pieceImage = null; 
+        }
+
+        blockAnimator.animateBlockMove(block, direction, pieceImage);
     }
     
     /**
@@ -502,14 +476,17 @@ public class GamePanel2 extends JPanel {
      * @return 是否有动画正在进行
      */
     public boolean isAnimating() {
-        return blockAnimator.isAnimating();
+        return blockAnimator != null && blockAnimator.isAnimating();
     }
     
     /**
      * 取消所有正在进行的动画
      */
     public void cancelAnimations() {
-        blockAnimator.cancelAnimations();
+        if (blockAnimator != null) {
+            blockAnimator.cancelAnimations();
+        }
+        repaint();
     }
     
     /**
@@ -517,7 +494,9 @@ public class GamePanel2 extends JPanel {
      * @param callback 回调函数
      */
     public void setAnimationCompleteCallback(Runnable callback) {
-        blockAnimator.setAnimationCompleteCallback(callback);
+        if (blockAnimator != null) {
+            blockAnimator.setAnimationCompleteCallback(callback);
+        }
     }
     
     /**
@@ -525,6 +504,38 @@ public class GamePanel2 extends JPanel {
      * @return 棋子动画管理器实例
      */
     public BlockAnimator getBlockAnimator() {
-        return this.blockAnimator;
+        return blockAnimator;
+    }
+    
+    /**
+     * 获取当前的单元格大小
+     * @return 当前计算出的单元格大小
+     */
+    public int getCellSize() {
+        return calculateCellSize();
+    }
+    
+    /**
+     * 获取棋盘绘制区域的实际X轴偏移量 (考虑面板居中)
+     * @return X轴偏移量
+     */
+    public int getActualOffsetX() {
+        Board2 board2 = gameLogic2.getGameState().getBoard();
+        if (board2 == null) return offsetX; // 默认值
+        int cellSize = calculateCellSize();
+        int boardPixelWidth = board2.getWidth() * cellSize;
+        return offsetX + (getWidth() - 2 * offsetX - boardPixelWidth) / 2;
+    }
+
+    /**
+     * 获取棋盘绘制区域的实际Y轴偏移量 (考虑面板居中)
+     * @return Y轴偏移量
+     */
+    public int getActualOffsetY() {
+        Board2 board2 = gameLogic2.getGameState().getBoard();
+        if (board2 == null) return offsetY; // 默认值
+        int cellSize = calculateCellSize();
+        int boardPixelHeight = board2.getHeight() * cellSize;
+        return offsetY + (getHeight() - 2 * offsetY - boardPixelHeight) / 2;
     }
 }

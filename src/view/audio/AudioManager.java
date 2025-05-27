@@ -576,4 +576,28 @@ public class AudioManager {
         // 关闭线程池
         audioExecutor.shutdown();
     }
+    
+    /**
+     * 切换背景音乐播放/暂停状态
+     */
+    public void toggleBGM() {
+        if (!audioEnabled) return;
+
+        if (currentBGM != null) {
+            if (currentBGM.isRunning()) {
+                pauseBGM();
+            } else {
+                // 如果BGM已加载但未运行 (可能已暂停或完全停止但未卸载)
+                // 尝试恢复播放。如果之前已完全停止并重置了帧位置，start()会从头播放。
+                resumeBGM(); 
+            }
+        } else {
+            // 如果没有当前BGM，尝试播放默认BGM
+            if (defaultBgmPath != null) {
+                playDefaultBGM();
+            } else {
+                System.err.println("AudioManager: No BGM loaded or default BGM path set to toggle.");
+            }
+        }
+    }
 } 

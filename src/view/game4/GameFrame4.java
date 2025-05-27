@@ -2,6 +2,7 @@ package view.game4;
 
 import controller4.Direction4;
 import controller4.GameLogic4;
+import controller4.Block4;
 import view.frontend.resourses.ResourceManager;
 import view.audio.AudioManager;
 import view.frontend.LoginFrame.AuthFrame;
@@ -299,50 +300,58 @@ public class GameFrame4 extends JFrame {
             this.addKeyListener(new KeyAdapter() {
                 @Override
                 public void keyPressed(KeyEvent e) {
-                    try {
-                        boolean moved = false;
-                        switch (e.getKeyCode()) {
-                            case KeyEvent.VK_UP:
-                            case KeyEvent.VK_W:
-                                moved = gameLogic4.moveSelectedBlock(Direction4.UP);
-                                if (moved) {
-                                    // 播放棋子移动音效
-                                    view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
-                                }
-                                break;
-                            case KeyEvent.VK_DOWN:
-                            case KeyEvent.VK_S:
-                                moved = gameLogic4.moveSelectedBlock(Direction4.DOWN);
-                                if (moved) {
-                                    // 播放棋子移动音效
-                                    view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
-                                }
-                                break;
-                            case KeyEvent.VK_LEFT:
-                            case KeyEvent.VK_A:
-                                moved = gameLogic4.moveSelectedBlock(Direction4.LEFT);
-                                if (moved) {
-                                    // 播放棋子移动音效
-                                    view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
-                                }
-                                break;
-                            case KeyEvent.VK_RIGHT:
-                            case KeyEvent.VK_D:
-                                moved = gameLogic4.moveSelectedBlock(Direction4.RIGHT);
-                                if (moved) {
-                                    // 播放棋子移动音效
-                                    view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
-                                }
-                                break;
-                        }
-                        if (moved) {
-                            refreshGameView();
-                            checkAndShowWinDialog();
-                        }
-                    } catch (Exception ex) {
-                        System.err.println("处理键盘输入失败");
-                        ex.printStackTrace();
+                    // 在此添加：如果动画正在进行，则忽略键盘输入
+                    if (gamePanel4.isAnimating()) { // Assuming GamePanel4 has isAnimating() method
+                        return;
                     }
+
+                    boolean moved = false;
+                    Direction4 moveDirection = null;
+                    Block4 selectedBlock = gameLogic4.getSelectedBlock(); // 获取选中的块
+
+                    switch (e.getKeyCode()) {
+                        case KeyEvent.VK_UP:
+                        case KeyEvent.VK_W:
+                            moveDirection = Direction4.UP;
+                            break;
+                        case KeyEvent.VK_DOWN:
+                        case KeyEvent.VK_S:
+                            moveDirection = Direction4.DOWN;
+                            break;
+                        case KeyEvent.VK_LEFT:
+                        case KeyEvent.VK_A:
+                            moveDirection = Direction4.LEFT;
+                            break;
+                        case KeyEvent.VK_RIGHT:
+                        case KeyEvent.VK_D:
+                            moveDirection = Direction4.RIGHT;
+                            break;
+                    }
+
+                    if (moveDirection != null && selectedBlock != null) {
+                        if (gameLogic4.canMove(selectedBlock, moveDirection.getDx(), moveDirection.getDy())) {
+                            final Direction4 finalMoveDirection = moveDirection; // 必须是 final 或 effectively final
+                            // 开始动画
+                            gamePanel4.animateBlockMove(selectedBlock, finalMoveDirection);
+
+                            // 设置动画完成后的回调
+                            gamePanel4.setAnimationCompleteCallback(() -> {
+                                boolean success = gameLogic4.moveSelectedBlock(finalMoveDirection);
+                                if (gamePanel4.getBlockAnimator() != null) {
+                                    gamePanel4.getBlockAnimator().finalizeAllPendingAnimations();
+                                }
+                                if (success) {
+                                    // AudioManager.getInstance().playDefaultPieceMoveSound(); // 如有需要，取消注释
+                                    refreshGameView();
+                                    checkAndShowWinDialog(); 
+                                } else {
+                                    gamePanel4.repaint();
+                                }
+                            });
+                            moved = true;
+                        }
+                    }
+                    // moved 变量现在主要用于标记是否启动了动画，实际的视图刷新由回调处理
                 }
             });
         } catch (Exception e) {

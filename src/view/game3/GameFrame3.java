@@ -538,41 +538,74 @@ public class GameFrame3 extends JFrame {
                 if (currentMoveIndex < solutionMoves.size()) {
                     MoveRecord3 move = solutionMoves.get(currentMoveIndex);
 
+                    // 确保选中了正确的棋子
                     boolean selectionSuccess = gameLogic3.selectBlockAt(move.getFromX(), move.getFromY());
+                    Block3 selectedBlock = gameLogic3.getSelectedBlock();
 
-                    if (!selectionSuccess || gameLogic3.getSelectedBlock() == null || gameLogic3.getSelectedBlock().getId() != move.getBlockId()) {
-                        System.err.println("AI 动画错误: 无法选择棋子 " + move.getBlockId());
+                    if (!selectionSuccess || selectedBlock == null || selectedBlock.getId() != move.getBlockId()) {
+                        System.err.println("AI 动画错误: 无法选择棋子 " + move.getBlockId() + " at (" + move.getFromX() + "," + move.getFromY() + ")");
                         animationTimer.stop();
                         finishAISession();
                         return;
                     }
 
-                    Direction3 moveDirection = determineDirection(move.getFromX(), move.getFromY(), move.getToX(), move.getToY());
+                    final Direction3 finalMoveDirection = determineDirection(move.getFromX(), move.getFromY(), move.getToX(), move.getToY());
 
-                    if (moveDirection == null) {
+                    if (finalMoveDirection == null) {
                         System.err.println("AI 动画错误: 无法确定方向 " + move);
                         animationTimer.stop();
                         finishAISession();
                         return;
                     }
 
-                    boolean moved = gameLogic3.moveSelectedBlock(moveDirection);
-
-                    if (moved) {
-                        // 播放棋子移动音效
-                        view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
-                        refreshGameView();
-                    } else {
-                        System.err.println("AI 动画错误: 移动失败 " + move);
-                        animationTimer.stop();
-                        finishAISession();
-                        return;
-                    }
-                    currentMoveIndex++;
-                } else {
+                    // ***** 开始动画 *****
+                    gamePanel3.animateBlockMove(selectedBlock, finalMoveDirection);
+                    
+                    // ***** 设置动画完成后的回调 *****
+                    final Block3 blockToMove = selectedBlock; // 在 lambda 中使用 final 或 effectively final
+                    gamePanel3.setAnimationCompleteCallback(() -> {
+                        // 动画完成后执行实际的棋子移动
+                        boolean success = gameLogic3.moveSelectedBlock(finalMoveDirection);
+                        
+                        // 在模型更新后，通知BlockAnimator可以清理已完成的动画状态
+                        if (gamePanel3.getBlockAnimator() != null) {
+                            gamePanel3.getBlockAnimator().finalizeAnimation(blockToMove.getId());
+                        }
+                        
+                        if (success) {
+                            view.audio.AudioManager.getInstance().playDefaultPieceMoveSound();
+                            refreshGameView(); // 刷新视图以反映模型变化
+                            
+                            // 检查胜利条件
+                            if (gameLogic3.getGameState().isGameWon()) {
+                                animationTimer.stop();
+                                finishAISession();
+                                checkAndShowWinDialog();
+                            } else {
+                                // 准备处理AI的下一步移动
+                                currentMoveIndex++;
+                                if (currentMoveIndex >= solutionMoves.size()) { // 所有步骤完成
+                                    animationTimer.stop();
+                                    finishAISession();
+                                    checkAndShowWinDialog(); // 再次检查以防万一
+                                } else {
+                                    // 触发Timer的下一次actionPerformed，但不立即执行，而是等待下一个delay
+                                    // Timer会自动处理
+                                }
+                            }
+                        } else {
+                            System.err.println("AI 动画回调错误: 移动失败 " + move);
+                            animationTimer.stop();
+                            finishAISession();
+                        }
+                    });
+                    // 注意：在设置回调后，Timer的 actionPerformed 方法就结束了。
+                    // 实际的 currentMoveIndex++ 和下一轮的开始将由动画完成回调触发（间接通过Timer）。
+                    // 因此，actionPerformed 的主要职责是启动单步动画。
+                } else { // currentMoveIndex >= solutionMoves.size()，所有步骤已启动或完成
                     animationTimer.stop();
                     finishAISession();
-                    checkAndShowWinDialog();
+                    checkAndShowWinDialog(); // 确保最后的状态被检查
                 }
             }
         });

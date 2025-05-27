@@ -2,6 +2,13 @@ package view.game;
 
 import controller.Block;
 import controller.Direction;
+// Import other Block and Direction types
+import controller2.Block2;
+import controller2.Direction2;
+import controller3.Block3;
+import controller3.Direction3;
+import controller4.Block4;
+import controller4.Direction4;
 
 import java.awt.*;
 import java.util.HashMap;
@@ -91,6 +98,60 @@ public class BlockAnimator {
         animationStates.put(block.getId(), state);
         
         // 如果动画计时器未启动，则启动它
+        if (!animationTimer.isRunning()) {
+            animating = true;
+            animationTimer.start();
+        }
+    }
+    
+    // Overload for Block2
+    public void animateBlockMove(Block2 block, Direction2 direction, Image pieceImageForAnimation) {
+        if (block == null || direction == null) {
+            return;
+        }
+        int startX = block.getX();
+        int startY = block.getY();
+        int targetX = startX + direction.getDx();
+        int targetY = startY + direction.getDy();
+        AnimationState state = new AnimationState(
+            block.getId(), startX, startY, targetX, targetY, System.currentTimeMillis(), pieceImageForAnimation);
+        animationStates.put(block.getId(), state);
+        if (!animationTimer.isRunning()) {
+            animating = true;
+            animationTimer.start();
+        }
+    }
+    
+    // Overload for Block3
+    public void animateBlockMove(Block3 block, Direction3 direction, Image pieceImageForAnimation) {
+        if (block == null || direction == null) {
+            return;
+        }
+        int startX = block.getX();
+        int startY = block.getY();
+        int targetX = startX + direction.getDx();
+        int targetY = startY + direction.getDy();
+        AnimationState state = new AnimationState(
+            block.getId(), startX, startY, targetX, targetY, System.currentTimeMillis(), pieceImageForAnimation);
+        animationStates.put(block.getId(), state);
+        if (!animationTimer.isRunning()) {
+            animating = true;
+            animationTimer.start();
+        }
+    }
+    
+    // Overload for Block4
+    public void animateBlockMove(Block4 block, Direction4 direction, Image pieceImageForAnimation) {
+        if (block == null || direction == null) {
+            return;
+        }
+        int startX = block.getX();
+        int startY = block.getY();
+        int targetX = startX + direction.getDx();
+        int targetY = startY + direction.getDy();
+        AnimationState state = new AnimationState(
+            block.getId(), startX, startY, targetX, targetY, System.currentTimeMillis(), pieceImageForAnimation);
+        animationStates.put(block.getId(), state);
         if (!animationTimer.isRunning()) {
             animating = true;
             animationTimer.start();
@@ -248,6 +309,60 @@ public class BlockAnimator {
         int height = block.getHeight() * cellSize;
         
         return new Rectangle(pixelX, pixelY, width, height);
+    }
+    
+    // Overload for Block2
+    public Rectangle getAnimatedBlockBounds(Block2 block, int cellSize, int offsetX, int offsetY) {
+        if (block == null) return null;
+        int blockId = block.getId();
+        AnimationState state = animationStates.get(blockId); 
+        if (state == null) state = completedButPendingConfirmation.get(blockId);
+        if (state == null) {
+            return new Rectangle(offsetX + block.getX() * cellSize, offsetY + block.getY() * cellSize, block.getWidth() * cellSize, block.getHeight() * cellSize);
+        }
+        if (state.complete) {
+            return new Rectangle(offsetX + Math.round(state.targetX * cellSize), offsetY + Math.round(state.targetY * cellSize), block.getWidth() * cellSize, block.getHeight() * cellSize);
+        }
+        float progress = easeInOutQuad(state.progress);
+        float currentX = state.startX + (state.targetX - state.startX) * progress;
+        float currentY = state.startY + (state.targetY - state.startY) * progress;
+        return new Rectangle(offsetX + Math.round(currentX * cellSize), offsetY + Math.round(currentY * cellSize), block.getWidth() * cellSize, block.getHeight() * cellSize);
+    }
+
+    // Overload for Block3
+    public Rectangle getAnimatedBlockBounds(Block3 block, int cellSize, int offsetX, int offsetY) {
+        if (block == null) return null;
+        int blockId = block.getId();
+        AnimationState state = animationStates.get(blockId);
+        if (state == null) state = completedButPendingConfirmation.get(blockId);
+        if (state == null) {
+            return new Rectangle(offsetX + block.getX() * cellSize, offsetY + block.getY() * cellSize, block.getWidth() * cellSize, block.getHeight() * cellSize);
+        }
+        if (state.complete) {
+            return new Rectangle(offsetX + Math.round(state.targetX * cellSize), offsetY + Math.round(state.targetY * cellSize), block.getWidth() * cellSize, block.getHeight() * cellSize);
+        }
+        float progress = easeInOutQuad(state.progress);
+        float currentX = state.startX + (state.targetX - state.startX) * progress;
+        float currentY = state.startY + (state.targetY - state.startY) * progress;
+        return new Rectangle(offsetX + Math.round(currentX * cellSize), offsetY + Math.round(currentY * cellSize), block.getWidth() * cellSize, block.getHeight() * cellSize);
+    }
+
+    // Overload for Block4
+    public Rectangle getAnimatedBlockBounds(Block4 block, int cellSize, int offsetX, int offsetY) {
+        if (block == null) return null;
+        int blockId = block.getId();
+        AnimationState state = animationStates.get(blockId);
+        if (state == null) state = completedButPendingConfirmation.get(blockId);
+        if (state == null) {
+            return new Rectangle(offsetX + block.getX() * cellSize, offsetY + block.getY() * cellSize, block.getWidth() * cellSize, block.getHeight() * cellSize);
+        }
+        if (state.complete) {
+            return new Rectangle(offsetX + Math.round(state.targetX * cellSize), offsetY + Math.round(state.targetY * cellSize), block.getWidth() * cellSize, block.getHeight() * cellSize);
+        }
+        float progress = easeInOutQuad(state.progress);
+        float currentX = state.startX + (state.targetX - state.startX) * progress;
+        float currentY = state.startY + (state.targetY - state.startY) * progress;
+        return new Rectangle(offsetX + Math.round(currentX * cellSize), offsetY + Math.round(currentY * cellSize), block.getWidth() * cellSize, block.getHeight() * cellSize);
     }
     
     /**
